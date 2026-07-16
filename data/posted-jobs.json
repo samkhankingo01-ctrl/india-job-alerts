@@ -1,0 +1,29 @@
+﻿{
+    "sources":  {
+                    "indeed":  {
+                                   "lastScrape":  null,
+                                   "totalScraped":  0
+                               },
+                    "naukri":  {
+                                   "lastScrape":  null,
+                                   "totalScraped":  0
+                               },
+                    "freejobalert":  {
+                                         "lastScrape":  null,
+                                         "totalScraped":  0
+                                     },
+                    "govtportals":  {
+                                        "lastScrape":  null,
+                                        "totalScraped":  0
+                                    },
+                    "linkedin":  {
+                                     "lastScrape":  null,
+                                     "totalScraped":  0
+                                 }
+                },
+    "fingerprints":  [
+
+                     ],
+    "lastRun":  null,
+    "totalCount":  0
+}

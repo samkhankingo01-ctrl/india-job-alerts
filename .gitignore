@@ -1,0 +1,36 @@
+# Byte-compiled / cached
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+.venv/
+env/
+.env/
+
+# IDE / Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets
+.env
+
+# Data (optional — uncomment to ignore generated data)
+# data/jobs-today.json
+
+# Logs
+*.log
+error.log
+
+# Test artifacts
+.pytest_cache/
+.coverage
+htmlcov/
