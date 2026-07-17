@@ -80,7 +80,7 @@ def scrape_jsearch(cfg: Config) -> list[Job]:
 
     for query in cfg.SEARCH_QUERIES:
         url: str = (
-            f"https://jsearch.p.rapidapi.com/search?"
+            f"https://jsearch.p.rapidapi.com/v1/search?"
             f"query={requests.utils.quote(query)}&page=1&num_pages=2"
         )
         try:
@@ -157,7 +157,7 @@ def scrape_arbeitnow(cfg: Config) -> list[Job]:
     seen: set[str] = set()
     jobs: list[Job] = []
 
-    for page in range(1, 13):
+    for page in range(1, 11):
         url: str = (
             f"https://www.arbeitnow.com/api/job-board-api?"
             f"page={page}&per_page=50"
