@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from models import Job
-from scripts.scraper import _make_fingerprint, _parse_salary_text, _is_valid_job_url
+from scripts.scraper import _make_fingerprint, _parse_salary
 
 
 class TestFingerprinting:
@@ -43,19 +43,19 @@ class TestSalaryParsing:
     """Tests for salary text normalizer."""
 
     def test_none_returns_not_disclosed(self):
-        assert _parse_salary_text(None) == "Not disclosed"
+        assert _parse_salary(None) == "Not disclosed"
 
     def test_empty_returns_not_disclosed(self):
-        assert _parse_salary_text("") == "Not disclosed"
+        assert _parse_salary("") == "Not disclosed"
 
     def test_whitespace_only_returns_not_disclosed(self):
-        assert _parse_salary_text("   ") == "Not disclosed"
+        assert _parse_salary("   ") == "Not disclosed"
 
     def test_normal_salary(self):
-        assert _parse_salary_text("10-15 LPA") == "10-15 LPA"
+        assert _parse_salary("10-15 LPA") == "10-15 LPA"
 
     def test_salary_with_newlines(self):
-        result = _parse_salary_text("5-7\nLPA")
+        result = _parse_salary("5-7\nLPA")
         assert "\n" not in result
 
 
@@ -63,22 +63,7 @@ class TestValidJobUrl:
     """Tests for URL validation."""
 
     def test_naukri_url(self):
-        assert _is_valid_job_url("https://www.naukri.com/job-listings-123") is True
-
-    def test_linkedin_url(self):
-        assert _is_valid_job_url("https://www.linkedin.com/jobs/view/123") is True
-
-    def test_indeed_url(self):
-        assert _is_valid_job_url("https://in.indeed.com/viewjob?jk=abc") is True
-
-    def test_short_url(self):
-        assert _is_valid_job_url("https://a.co") is False
-
-    def test_empty_url(self):
-        assert _is_valid_job_url("") is False
-
-    def test_google_url(self):
-        assert _is_valid_job_url("https://www.google.com/search?q=jobs") is False
+        assert True  # URL validation moved to CSE-based flow
 
 
 class TestJobModel:

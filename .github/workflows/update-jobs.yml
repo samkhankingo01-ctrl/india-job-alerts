@@ -3,10 +3,10 @@ name: Update India Jobs
 on:
   schedule:
     - cron: '0 */6 * * *'   # Every 6 hours (UTC)
-  workflow_dispatch:          # Manual trigger
+  workflow_dispatch:          # Manual trigger button
 
 permissions:
-  contents: write              # Needed for auto-commit + push
+  contents: write
 
 jobs:
   update-jobs:
@@ -26,12 +26,12 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Run full job update pipeline
+        env:
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          GOOGLE_CX: ${{ secrets.GOOGLE_CX }}
         run: python main.py --run-all
-        continue-on-error: false
 
       - name: Commit and push changes
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -39,10 +39,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "No changes to commit"
           else
-            git commit -m "🤖 Auto: Update jobs – $(date +%Y-%m-%d_%H-%M)"
+            git commit -m "Auto: Update jobs - $(date +%Y-%m-%d_%H-%M)"
             git push
           fi
-
-      - name: Log on failure
-        if: failure()
-        run: echo "Job update failed at $(date)" >> error.log

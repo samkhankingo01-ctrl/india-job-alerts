@@ -56,29 +56,19 @@ class AppConfig:
     # --- Sources ---
     sources: List[SourceConfig] = field(default_factory=lambda: [
         SourceConfig(
-            name="naukri",
-            base_url="https://www.naukri.com",
-            search_url="https://www.naukri.com/jobapi/v3/search?noOfResults=50&urlType=search_by_keyword&searchType=adv&keyword=all+jobs+india",
+            name="google_cse",
+            base_url="https://www.googleapis.com",
+            search_url="https://www.googleapis.com/customsearch/v1",
         ),
         SourceConfig(
-            name="indeed",
-            base_url="https://in.indeed.com",
-            search_url="https://in.indeed.com/jobs?q=&l=India&sort=date&limit=50",
+            name="remotive",
+            base_url="https://remotive.com",
+            search_url="https://remotive.com/api/remote-jobs",
         ),
         SourceConfig(
-            name="linkedin",
-            base_url="https://www.linkedin.com",
-            search_url="https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?keywords=&location=India&start=0",
-        ),
-        SourceConfig(
-            name="freejobalert",
-            base_url="https://www.freejobalert.com",
-            search_url="https://www.freejobalert.com/latest-notifications/",
-        ),
-        SourceConfig(
-            name="govtportals",
-            base_url="https://www.sarkariresult.com",
-            search_url="https://www.sarkariresult.com/latestjob/",
+            name="arbeitnow",
+            base_url="https://www.arbeitnow.com",
+            search_url="https://www.arbeitnow.com/api/job-board-api",
         ),
     ])
 
