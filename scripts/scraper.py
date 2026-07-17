@@ -57,6 +57,10 @@ def _make_jsearch_job(item: dict[str, Any], cfg: Config) -> Job:
 def scrape_jsearch(cfg: Config) -> list[Job]:
     """Scrape jobs from the JSearch RapidAPI endpoint.
 
+    NOTE: JSearch API endpoints are currently returning 404 on RapidAPI.
+    This scraper is kept as a placeholder. If JSearch returns, update
+    the URL in this function.
+
     Args:
         cfg: Pipeline configuration.
 
@@ -65,8 +69,8 @@ def scrape_jsearch(cfg: Config) -> list[Job]:
     """
     api_key: str = os.getenv("RAPIDAPI_KEY", "")
     if not api_key:
-        logger.warning(
-            "RAPIDAPI_KEY not set – skipping JSearch scraper."
+        logger.info(
+            "RAPIDAPI_KEY not set - skipping JSearch scraper."
         )
         return []
 
@@ -75,12 +79,45 @@ def scrape_jsearch(cfg: Config) -> list[Job]:
         "X-RapidAPI-Host": "jsearch.p.rapidapi.com",
     }
 
+    # Try multiple endpoint patterns (JSearch keeps changing their URL)
+    endpoints = [
+        "https://jsearch.p.rapidapi.com/search",
+        "https://jsearch.p.rapidapi.com/v1/search",
+        "https://jsearch.p.rapidapi.com/api/jobs/search",
+    ]
+
     seen: set[str] = set()
     jobs: list[Job] = []
+    working_url: str | None = None
+
+    # Find working endpoint first
+    for endpoint in endpoints:
+        try:
+            test_url = f"{endpoint}?query=jobs&page=1&num_pages=1"
+            resp = requests.get(test_url, headers=headers, timeout=10)
+            if resp.status_code == 200:
+                data = resp.json()
+                if data.get("data"):
+                    working_url = endpoint
+                    logger.info("JSearch working endpoint found: %s", endpoint)
+                    break
+            elif resp.status_code == 429:
+                # 429 = endpoint exists but rate limited = correct URL
+                working_url = endpoint
+                logger.info("JSearch endpoint rate-limited (correct URL): %s", endpoint)
+                break
+            else:
+                logger.debug("JSearch endpoint %s returned %d", endpoint, resp.status_code)
+        except Exception:
+            continue
+
+    if not working_url:
+        logger.warning("JSearch: No working endpoint found - API may be down. Skipping.")
+        return []
 
     for query in cfg.SEARCH_QUERIES:
         url: str = (
-            f"https://jsearch.p.rapidapi.com/v1/search?"
+            f"{working_url}?"
             f"query={requests.utils.quote(query)}&page=1&num_pages=2"
         )
         try:
@@ -88,6 +125,9 @@ def scrape_jsearch(cfg: Config) -> list[Job]:
             resp: requests.Response = requests.get(
                 url, headers=headers, timeout=30,
             )
+            if resp.status_code == 429:
+                logger.warning("JSearch rate limited, stopping.")
+                break
             resp.raise_for_status()
             data: dict[str, Any] = resp.json()
             items: list[dict[str, Any]] = data.get("data", [])
@@ -97,8 +137,6 @@ def scrape_jsearch(cfg: Config) -> list[Job]:
                 if key not in seen:
                     seen.add(key)
                     jobs.append(job)
-            logger.debug("JSearch got %d jobs for query: %s", len(items), query)
-            # Be polite to the API
             time.sleep(random.uniform(0.5, 1.5))
         except Exception:
             logger.exception("JSearch failed for query: %s", query)
@@ -178,7 +216,7 @@ def scrape_arbeitnow(cfg: Config) -> list[Job]:
             if len(items) < 50:
                 logger.info("Arbeitnow: fewer than 50 on page %d, stopping.", page)
                 break
-            time.sleep(random.uniform(0.3, 0.8))
+            time.sleep(random.uniform(1.0, 2.0))
         except Exception:
             logger.exception("Arbeitnow failed on page %d", page)
 
