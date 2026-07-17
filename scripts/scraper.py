@@ -142,7 +142,8 @@ def scrape_jsearch(cfg: Config) -> list[Job]:
     """Scrape INDIA jobs from the JSearch RapidAPI endpoint.
 
     Uses ``country=in`` so only India postings are returned, then applies a
-    secondary hard India-filter as a safety net.
+    secondary hard India-filter as a safety net. Tries multiple endpoint
+    variants per query so a single 404/exception doesn't kill the whole run.
     """
     api_key: str = os.getenv("RAPIDAPI_KEY", "")
     if not api_key:
@@ -154,52 +155,54 @@ def scrape_jsearch(cfg: Config) -> list[Job]:
         "X-RapidAPI-Host": "jsearch.p.rapidapi.com",
     }
 
+    # Endpoint variants – JSearch rotates these on RapidAPI. We try each per
+    # query instead of relying on a single up-front probe (which can flake).
     endpoints = [
-        "https://jsearch.p.rapidapi.com/search",
         "https://jsearch.p.rapidapi.com/v1/search",
+        "https://jsearch.p.rapidapi.com/search",
     ]
-
-    working_url: str | None = None
-    for endpoint in endpoints:
-        try:
-            test_url = (
-                f"{endpoint}?query=jobs+in+India&country=in"
-                f"&page=1&num_pages=1"
-            )
-            resp = requests.get(test_url, headers=headers, timeout=15)
-            if resp.status_code == 200:
-                if resp.json().get("data"):
-                    working_url = endpoint
-                    logger.info("JSearch working endpoint: %s", endpoint)
-                    break
-            elif resp.status_code == 429:
-                working_url = endpoint  # correct URL, just rate limited
-                logger.info("JSearch rate-limited (correct URL): %s", endpoint)
-                break
-            else:
-                logger.debug("JSearch %s -> %d", endpoint, resp.status_code)
-        except Exception:
-            continue
-
-    if not working_url:
-        logger.warning("JSearch: no working endpoint found. Skipping.")
-        return []
 
     seen: set[str] = set()
     jobs: list[Job] = []
+    rate_limited = False
+
     for query in cfg.SEARCH_QUERIES:
-        url = (
-            f"{working_url}?query={requests.utils.quote(query)}"
-            f"&country=in&page=1&num_pages=2"
-        )
-        try:
-            logger.info("JSearch querying: %s", query)
-            resp = requests.get(url, headers=headers, timeout=30)
+        if rate_limited:
+            break
+        for endpoint in endpoints:
+            url = (
+                f"{endpoint}?query={requests.utils.quote(query)}"
+                f"&country=in&page=1&num_pages=2"
+            )
+            try:
+                logger.info("JSearch querying: %s (%s)", query, endpoint)
+                resp = requests.get(url, headers=headers, timeout=30)
+            except Exception:
+                logger.debug("JSearch request error on %s", endpoint)
+                continue  # try next endpoint variant
+
             if resp.status_code == 429:
-                logger.warning("JSearch rate limited, stopping.")
+                logger.warning("JSearch rate limited on %s.", endpoint)
+                rate_limited = True
                 break
-            resp.raise_for_status()
-            items = resp.json().get("data", [])
+            if resp.status_code == 404:
+                logger.info("JSearch 404 on %s, trying next variant.", endpoint)
+                continue  # try next endpoint variant
+            if resp.status_code != 200:
+                logger.warning(
+                    "JSearch %s -> HTTP %d | body: %s",
+                    endpoint,
+                    resp.status_code,
+                    resp.text[:300],
+                )
+                continue  # try next endpoint variant
+
+            try:
+                items = resp.json().get("data", []) or []
+            except ValueError:
+                logger.debug("JSearch non-JSON response on %s", endpoint)
+                continue
+
             for item in items:
                 job = _make_jsearch_job(item)
                 _finalize_location(job)
@@ -207,10 +210,13 @@ def scrape_jsearch(cfg: Config) -> list[Job]:
                 if key not in seen and job.city:
                     seen.add(key)
                     jobs.append(job)
-            time.sleep(random.uniform(0.5, 1.5))
-        except Exception:
-            logger.exception("JSearch failed for query: %s", query)
+            break  # success on this query, move to next query
+        time.sleep(random.uniform(0.8, 1.8))
 
+    if not jobs:
+        logger.warning(
+            "JSearch: 0 jobs fetched (check RAPIDAPI_KEY validity / quota)."
+        )
     jobs = _keep_india_only(jobs)
     logger.info("JSearch total unique India jobs: %d", len(jobs))
     return jobs
