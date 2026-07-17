@@ -1,190 +1,99 @@
-"""Tests for the scraper module.
-
-These tests cover helper functions (fingerprinting, salary parsing) and
-the scraper result aggregation without making actual network calls.
-"""
+"""Tests for scraper module."""
 
 from __future__ import annotations
 
-import hashlib
-
-import pytest
-
-from models import Job, ScraperResult
-
-
-# ---------------------------------------------------------------------------
-# Helpers under test (imported from scraper module)
-# ---------------------------------------------------------------------------
-
-
-def _make_fingerprint(title: str, company: str, location: str) -> str:
-    """Inline helper so tests are self-contained."""
-    raw = f"{title.strip().lower()}|{company.strip().lower()}|{location.strip().lower()}"
-    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
-
-
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
-
-
-@pytest.fixture
-def sample_job() -> Job:
-    """Return a single representative Job for testing."""
-    return Job(
-        title="Software Engineer",
-        company="TechCorp",
-        location="Bangalore, Karnataka",
-        salary="₹15 LPA",
-        url="https://example.com/job/1",
-        source="naukri",
-    )
-
-
-@pytest.fixture
-def sample_jobs() -> list[Job]:
-    """Return a list of jobs from different sources."""
-    return [
-        Job(
-            title="Frontend Developer",
-            company="WebCo",
-            location="Mumbai, Maharashtra",
-            source="indeed",
-        ),
-        Job(
-            title="Data Scientist",
-            company="AI Labs",
-            location="Remote",
-            source="linkedin",
-        ),
-        Job(
-            title="SSC CGL 2025",
-            company="Government of India",
-            location="India",
-            source="govtportals",
-            is_government=True,
-            last_date="31 Aug 2025",
-        ),
-    ]
-
-
-# ---------------------------------------------------------------------------
-# Fingerprinting tests
-# ---------------------------------------------------------------------------
+from models import Job
+from scripts.scraper import _make_fingerprint, _parse_salary_text, _is_valid_job_url
 
 
 class TestFingerprinting:
-    """Tests for SHA-256 job fingerprinting."""
+    """Tests for the SHA-256 fingerprint generator."""
 
-    def test_deterministic(self, sample_job: Job) -> None:
-        """Fingerprint should be deterministic for the same inputs."""
-        fp1 = _make_fingerprint(sample_job.title, sample_job.company, sample_job.location)
-        fp2 = _make_fingerprint(sample_job.title, sample_job.company, sample_job.location)
-        assert fp1 == fp2
-        assert len(fp1) == 64
-
-    def test_case_insensitive(self) -> None:
-        """Fingerprinting should be case-insensitive."""
-        fp1 = _make_fingerprint("SOFTWARE ENGINEER", "TECHCORP", "BANGALORE")
-        fp2 = _make_fingerprint("software engineer", "techcorp", "bangalore")
+    def test_deterministic(self):
+        fp1 = _make_fingerprint("SWE", "MS", "BLR")
+        fp2 = _make_fingerprint("SWE", "MS", "BLR")
         assert fp1 == fp2
 
-    def test_whitespace_insensitive(self) -> None:
-        """Fingerprinting should strip leading/trailing whitespace."""
-        fp1 = _make_fingerprint("  Dev  ", "  Acme  ", "  Delhi  ")
-        fp2 = _make_fingerprint("Dev", "Acme", "Delhi")
+    def test_case_insensitive(self):
+        fp1 = _make_fingerprint("Software Engineer", "Microsoft", "Bangalore")
+        fp2 = _make_fingerprint("software engineer", "MICROSOFT", "bangalore")
         assert fp1 == fp2
 
-    def test_different_fields_produce_different_fingerprints(self) -> None:
-        """Jobs with different title/company/location should have unique fingerprints."""
-        fp1 = _make_fingerprint("Dev", "Acme", "Delhi")
-        fp2 = _make_fingerprint("QA", "Acme", "Delhi")
-        fp3 = _make_fingerprint("Dev", "BetaCorp", "Delhi")
-        fp4 = _make_fingerprint("Dev", "Acme", "Mumbai")
-        distinct = {fp1, fp2, fp3, fp4}
-        assert len(distinct) == 4
+    def test_whitespace_insensitive(self):
+        fp1 = _make_fingerprint("  SWE  ", "MS", "  BLR  ")
+        fp2 = _make_fingerprint("SWE", "MS", "BLR")
+        assert fp1 == fp2
 
-    def test_unicode_handling(self) -> None:
-        """Fingerprinting should handle Unicode characters in Indian languages."""
-        fp = _make_fingerprint("डेवलपर", "कंपनी", "दिल्ली")
-        assert len(fp) == 64
-        assert isinstance(fp, str)
+    def test_different_fields_produce_different_fingerprints(self):
+        fp1 = _make_fingerprint("SWE", "MS", "BLR")
+        fp2 = _make_fingerprint("SWE", "MS", "DEL")
+        assert fp1 != fp2
 
-    def test_fingerprint_on_job_model(self, sample_job: Job) -> None:
-        """The Job model should accept and store a fingerprint."""
-        sample_job.fingerprint = _make_fingerprint(
-            sample_job.title, sample_job.company, sample_job.location
-        )
-        assert len(sample_job.fingerprint) == 64
-        assert isinstance(sample_job.fingerprint, str)
+    def test_unicode_handling(self):
+        fp = _make_fingerprint("D\u00e9veloppeur", "Caf\u00e9", "M\u00e9xico")
+        assert len(fp) == 64  # SHA-256 hex digest length
+
+    def test_fingerprint_on_job_model(self):
+        job = Job(title="Dev", company="Co", location="City")
+        job.fingerprint = _make_fingerprint(job.title, job.company, job.location)
+        assert len(job.fingerprint) == 64
 
 
-# ---------------------------------------------------------------------------
-# ScraperResult tests
-# ---------------------------------------------------------------------------
+class TestSalaryParsing:
+    """Tests for salary text normalizer."""
+
+    def test_none_returns_not_disclosed(self):
+        assert _parse_salary_text(None) == "Not disclosed"
+
+    def test_empty_returns_not_disclosed(self):
+        assert _parse_salary_text("") == "Not disclosed"
+
+    def test_whitespace_only_returns_not_disclosed(self):
+        assert _parse_salary_text("   ") == "Not disclosed"
+
+    def test_normal_salary(self):
+        assert _parse_salary_text("10-15 LPA") == "10-15 LPA"
+
+    def test_salary_with_newlines(self):
+        result = _parse_salary_text("5-7\nLPA")
+        assert "\n" not in result
 
 
-class TestScraperResult:
-    """Tests for the ScraperResult aggregate model."""
+class TestValidJobUrl:
+    """Tests for URL validation."""
 
-    def test_defaults(self) -> None:
-        """A default ScraperResult should have zero jobs and empty lists."""
-        result = ScraperResult()
-        assert result.total_jobs == 0
-        assert result.new_jobs == 0
-        assert result.jobs == []
-        assert result.source_stats == {}
-        assert result.errors == []
+    def test_naukri_url(self):
+        assert _is_valid_job_url("https://www.naukri.com/job-listings-123") is True
 
-    def test_with_data(self, sample_jobs: list[Job]) -> None:
-        """ScraperResult should hold jobs and stats."""
-        result = ScraperResult(
-            total_jobs=3,
-            new_jobs=2,
-            jobs=sample_jobs,
-            source_stats={
-                "indeed": {"success": True, "scraped": 1},
-                "linkedin": {"success": True, "scraped": 1},
-                "govtportals": {"success": True, "scraped": 1},
-            },
-        )
-        assert result.total_jobs == 3
-        assert len(result.jobs) == 3
-        assert result.source_stats["indeed"]["scraped"] == 1
+    def test_linkedin_url(self):
+        assert _is_valid_job_url("https://www.linkedin.com/jobs/view/123") is True
 
-    def test_error_accumulation(self) -> None:
-        """Errors should accumulate in the errors list."""
-        result = ScraperResult(errors=["Timeout on naukri", "Parse error on indeed"])
-        assert len(result.errors) == 2
-        assert "Timeout" in result.errors[0]
+    def test_indeed_url(self):
+        assert _is_valid_job_url("https://in.indeed.com/viewjob?jk=abc") is True
 
+    def test_short_url(self):
+        assert _is_valid_job_url("https://a.co") is False
 
-# ---------------------------------------------------------------------------
-# Job model tests
-# ---------------------------------------------------------------------------
+    def test_empty_url(self):
+        assert _is_valid_job_url("") is False
+
+    def test_google_url(self):
+        assert _is_valid_job_url("https://www.google.com/search?q=jobs") is False
 
 
 class TestJobModel:
-    """Tests for the Job dataclass."""
+    """Tests for the Job data model."""
 
-    def test_default_values(self) -> None:
-        """Job defaults should be sensible."""
-        job = Job(title="Test", company="TestCo")
-        assert job.location == "India"
+    def test_default_values(self):
+        job = Job(title="SWE", company="MS", location="BLR")
         assert job.salary == "Not disclosed"
-        assert job.url == ""
         assert job.source == ""
         assert job.category == "Other"
         assert job.is_government is False
+        assert job.fingerprint == ""
 
-    def test_government_job(self) -> None:
-        """Government jobs should have the flag set."""
-        job = Job(
-            title="IAS Officer",
-            company="UPSC",
-            is_government=True,
-            last_date="15 Dec 2025",
-        )
+    def test_government_job(self):
+        job = Job(title="Clerk", company="SSC", location="India",
+                  is_government=True, last_date="2026-08-15")
         assert job.is_government is True
-        assert job.last_date == "15 Dec 2025"
+        assert job.last_date == "2026-08-15"

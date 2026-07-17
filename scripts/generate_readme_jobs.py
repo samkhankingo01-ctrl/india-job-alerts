@@ -1,7 +1,7 @@
 """README generator for India Job Alerts.
 
-Produces a comprehensive README.md with badges, documentation, stats, and
-a live job table. Uses marker comments for incremental stat updates.
+Produces a comprehensive README.md with badges, documentation, stats,
+and a live job table showing actual scraped jobs.
 """
 
 from __future__ import annotations
@@ -16,12 +16,12 @@ from models import Job
 
 logger = logging.getLogger(__name__)
 
-# Marker strings used to locate the stats insertion region in README.md
+# Marker strings for incremental stat updates
 JOBS_STATS_START = "<!-- JOBS_STATS_START -->"
 JOBS_STATS_END = "<!-- JOBS_STATS_END -->"
 
 # ---------------------------------------------------------------------------
-# Full README template
+# Full README template (ASCII-safe for GitHub rendering)
 # ---------------------------------------------------------------------------
 
 README_TEMPLATE = """\
@@ -31,83 +31,72 @@ README_TEMPLATE = """\
   <img src="https://img.shields.io/badge/Python-3.12%2B-blue?style=for-the-badge&logo=python" alt="Python" />
 </p>
 
-# 🇮🇳 India Job Alerts
+<h1 align="center">India Job Alerts</h1>
 
-> 🔔 **Fully automated** job aggregator for India — scraped every 6 hours, deduplicated, categorized, and formatted into Instagram-ready captions.
-
----
-
-## 📖 How It Works
-
-```
-┌─────────────┐     ┌───────────┐     ┌──────────────┐
-│  Scrapers   │────▶│  Dedup    │────▶│  Categorizer │
-│  5 sources  │     │ SHA-256   │     │ 14 categories│
-└─────────────┘     └───────────┘     └──────────────┘
-                                            │
-                    ┌───────────────────────┘
-                    ▼
-┌──────────────────────────────────────────────────────┐
-│                    Outputs                           │
-│  • captions-YYYY-MM-DD.md (Instagram-ready)          │
-│  • posted-jobs.json (dedup ledger)                   │
-│  • README.md (live stats)                            │
-└──────────────────────────────────────────────────────┘
-```
-
-1. **Scrape** — Pulls the latest job postings from Naukri, Indeed, LinkedIn, FreeJobAlert, and SarkariResult.
-2. **Deduplicate** — SHA-256 fingerprints on `(title + company + location)` ensure no repeats.
-3. **Categorize** — Keyword matching assigns every job to one of 14 categories.
-4. **Format** — Generates Instagram-ready markdown captions with emojis and hashtags.
-5. **Commit** — GitHub Actions auto-commits new jobs every 6 hours.
+<p align="center">
+  <strong>Fully automated</strong> job aggregator for India &mdash; scraped every 6 hours, deduplicated, categorized, and formatted into Instagram-ready captions.
+</p>
 
 ---
 
-## 📂 Directory Structure
+## How It Works
+
+```
+[1] Scrape (5 sources)  -->  [2] Dedup (SHA-256)  -->  [3] Categorize (14+ categories)
+                                                      |
+                                                      v
+                              [4] Format captions  -->  [5] Update README + Commit
+```
+
+1. **Scrape** - Pulls the latest job postings from Naukri, Indeed, LinkedIn, FreeJobAlert, and SarkariResult
+2. **Deduplicate** - SHA-256 fingerprints on `(title + company + location)` ensure no repeats
+3. **Categorize** - Keyword matching assigns every job to one of 14+ categories
+4. **Format** - Generates Instagram-ready markdown captions with emojis and hashtags
+5. **Commit** - GitHub Actions auto-commits new jobs every 6 hours
+
+---
+
+## Directory Structure
 
 ```
 india-job-alerts/
-├── .github/workflows/
-│   └── update-jobs.yml          # GitHub Actions — runs every 6 hours
-├── data/
-│   └── posted-jobs.json         # Deduplication ledger
-├── output/
-│   └── captions-YYYY-MM-DD.md   # Daily caption output
-├── scripts/
-│   ├── scraper.py               # Multi-source job scraper
-│   ├── dedup.py                 # Fingerprint-based dedup
-│   ├── categorizer.py           # Keyword category classifier
-│   ├── format_captions.py       # Instagram caption generator
-│   └── generate_readme_jobs.py  # README stats updater
-├── tests/
-│   ├── test_scraper.py
-│   ├── test_dedup.py
-│   ├── test_categorizer.py
-│   └── test_format_captions.py
-├── config.py                    # Central configuration
-├── models.py                    # Data models
-├── main.py                      # Orchestrator CLI
-├── requirements.txt
-├── pyproject.toml
-└── README.md
+|-- .github/workflows/
+|   |-- update-jobs.yml          # GitHub Actions - runs every 6 hours
+|-- data/
+|   |-- jobs-YYYY-MM-DD.json     # Daily scraped job database (ALL individual jobs)
+|   |-- posted-jobs.json         # Deduplication ledger
+|-- output/
+|   |-- captions-YYYY-MM-DD.md   # Instagram-ready daily captions
+|-- scripts/
+|   |-- scraper.py               # Multi-source job scraper
+|   |-- dedup.py                 # Fingerprint-based dedup engine
+|   |-- categorizer.py           # Keyword category classifier
+|   |-- format_captions.py       # Instagram caption generator
+|   |-- generate_readme_jobs.py  # README stats updater
+|-- tests/                       # Unit tests (pytest)
+|-- config.py                    # Central configuration
+|-- models.py                    # Data models (Job, ScraperResult, CaptionBlock)
+|-- main.py                      # Orchestrator CLI
+|-- requirements.txt
+|-- pyproject.toml
+|-- README.md
 ```
 
 ---
 
-## 📊 Job Categories
+## Job Sources
 
-{sources_table}
+| Source | Type | URL |
+|--------|------|-----|
+| Naukri | Private Sector | [naukri.com](https://www.naukri.com) |
+| Indeed India | Private Sector | [in.indeed.com](https://in.indeed.com) |
+| LinkedIn | Private Sector | [linkedin.com/jobs](https://www.linkedin.com/jobs) |
+| FreeJobAlert | Government + Private | [freejobalert.com](https://www.freejobalert.com) |
+| SarkariResult | Government | [sarkariresult.com](https://www.sarkariresult.com) |
 
 ---
 
-## 🚀 Quick Start
-
-### Prerequisites
-
-- Python 3.12+
-- pip
-
-### Installation
+## Quick Start
 
 ```bash
 # Clone the repository
@@ -125,14 +114,14 @@ python main.py --run-all
 
 | Flag | Description |
 |------|-------------|
-| `--run-all` | Scrape → Dedup → Categorize → Format → Update README |
+| `--run-all` | Scrape + Dedup + Categorize + Format + Update README |
 | `--scrape-only` | Run only the scrapers |
 | `--format-only` | Generate captions from existing data |
 | `--readme-only` | Update README stats only |
 
 ---
 
-## 🤖 Automation
+## Automation
 
 This repository uses **GitHub Actions** to run the full pipeline every **6 hours**.
 
@@ -143,30 +132,20 @@ schedule:
 
 You can also trigger it manually from the Actions tab using `workflow_dispatch`.
 
-### Environment Variables (optional)
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `MAX_JOBS_PER_SOURCE` | `50` | Max jobs to scrape per source |
-| `DEDUP_DAYS` | `7` | Days to retain fingerprints |
-| `GITHUB_TOKEN` | – | For GitHub API calls (auto-set in Actions) |
-
-Copy `.env.example` to `.env` to override defaults locally.
-
 ---
 
-## 📸 Caption Format
+## Caption Format
 
-Each job is rendered as:
+Each job is rendered as an Instagram-ready caption:
 
 ```
-🚨 Hiring Now!
+Hiring Now!
 
-🏢 Company: TechCorp India
-💼 Role: Senior Software Engineer
-📍 Location: Bangalore, Karnataka
-💰 Salary: ₹18 LPA
-🔗 Apply: https://example.com/job/12345
+Company: TechCorp India
+Role: Senior Software Engineer
+Location: Bangalore, Karnataka
+Salary: Rs.18 LPA
+Apply: https://example.com/job/12345
 
 #jobs #indiajobs #hiring #ittech #techjobs #softwarejobs
 ---
@@ -175,14 +154,14 @@ Each job is rendered as:
 **Government jobs** get a special header:
 
 ```
-🏛️ GOVERNMENT JOB ALERT!
+GOVERNMENT JOB ALERT!
 
-🏢 Company: Government of India
-💼 Role: SSC CGL 2025
-📍 Location: India
-💰 Salary: Not disclosed
-🔗 Apply: https://ssc.nic.in
-📅 Last Date: 31 Aug 2025
+Organization: UPSC
+Role: Drug Inspector (450 Posts)
+Location: All India
+Salary: Pay Level-7 (Rs.44,900 - Rs.1,42,400)
+Last Date: 15 Aug 2026
+Apply: https://upsc.gov.in
 
 #jobs #indiajobs #hiring #governmentjobs #sarkarinaukri
 ---
@@ -194,14 +173,13 @@ Each job is rendered as:
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
-Contributions are welcome! Feel free to:
+Contributions are welcome!
 
-- **Add a new scraper** — implement `scrape_<source>()` in `scripts/scraper.py`
-- **Add categories** — extend `CATEGORY_MAP` in `config.py`
-- **Improve captions** — tweak `build_caption()` in `scripts/format_captions.py`
-- **Fix bugs** — open an issue or PR
+- **Add a new scraper** - implement `scrape_<source>()` in `scripts/scraper.py`
+- **Add categories** - extend `CATEGORY_MAP` in `config.py`
+- **Improve captions** - tweak `build_caption()` in `scripts/format_captions.py`
 
 Please ensure all tests pass before submitting:
 
@@ -211,34 +189,34 @@ pytest tests/ -v
 
 ---
 
-## 📜 License
+## License
 
-This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+MIT - see the [LICENSE](LICENSE) file for details.
 
 ---
 
 <p align="center">
-  <sub>Built with ❤️ for Indian job seekers | Auto-updated every 6 hours</sub>
+  <sub>Built for Indian job seekers | Auto-updated every 6 hours</sub>
 </p>
 """
 
 STATS_TEMPLATE = """\
-## 📈 Live Stats
+## Live Stats
 
 > Last updated: **{last_updated}**
 
 | Metric | Value |
 |--------|-------|
-| 📦 Total Unique Jobs | **{total_count}** |
-| 📂 Categories Covered | **{category_count}** |
-| 🔍 Sources Monitored | **{source_count}** |
-| 🆕 Latest Captions | `output/{captions_file}` |
+| Total Unique Jobs | **{total_count}** |
+| Categories Covered | **{category_count}** |
+| Sources Monitored | **{source_count}** |
+| Latest Captions | `output/{captions_file}` |
 
-### 🔥 Top 10 Latest Jobs
+### Latest Jobs
 
 {job_table}
 
-### 📊 By Category
+### By Category
 
 {category_table}
 """
@@ -254,8 +232,8 @@ def _load_posted_jobs(posted_jobs_path: str = "data/posted-jobs.json") -> Dict[s
         return default
 
 
-def _build_job_table(jobs: List[Job], limit: int = 10) -> str:
-    """Build a Markdown table of the top N jobs.
+def _build_job_table(jobs: List[Job], limit: int = 20) -> str:
+    """Build a Markdown table of the latest jobs.
 
     Args:
         jobs: List of Job objects.
@@ -265,23 +243,21 @@ def _build_job_table(jobs: List[Job], limit: int = 10) -> str:
         Markdown table string.
     """
     if not jobs:
-        return "| – | – | – |\n| *No jobs yet* | | |\n"
+        return "| - | - | - | - |\n| *No jobs yet* | | | |\n"
 
-    lines = ["| 💼 Role | 🏢 Company | 📂 Category |", "|----------|------------|-------------|"]
-    for job in jobs[:limit]:
-        lines.append(f"| {job.title} | {job.company} | {job.category} |")
+    lines = ["| # | Role | Company | Location | Category | Source |",
+             "|---|------|---------|----------|----------|--------|"]
+    for i, job in enumerate(jobs[:limit], 1):
+        title = job.title[:60] + ("..." if len(job.title) > 60 else "")
+        company = job.company[:30] + ("..." if len(job.company) > 30 else "")
+        lines.append(
+            f"| {i} | {title} | {company} | {job.location} | {job.category} | {job.source} |"
+        )
     return "\n".join(lines)
 
 
 def _build_category_table(jobs: List[Job]) -> str:
-    """Build a Markdown table of job counts by category.
-
-    Args:
-        jobs: List of Job objects.
-
-    Returns:
-        Markdown table string.
-    """
+    """Build a Markdown table of job counts by category."""
     counts: Dict[str, int] = {}
     for job in jobs:
         counts[job.category] = counts.get(job.category, 0) + 1
@@ -290,7 +266,7 @@ def _build_category_table(jobs: List[Job]) -> str:
         return "| *No jobs categorized yet* | |\n"
 
     sorted_cats = sorted(counts.items(), key=lambda x: x[1], reverse=True)
-    lines = ["| 📂 Category | 📦 Count |", "|-------------|-----------|"]
+    lines = ["| Category | Count |", "|----------|-------|"]
     for cat, cnt in sorted_cats:
         lines.append(f"| {cat} | {cnt} |")
     return "\n".join(lines)
@@ -304,11 +280,8 @@ def generate_readme(
 ) -> None:
     """Generate a complete README.md for the repository.
 
-    If an existing README.md has JOBS_STATS_START/END markers, only the
-    stats section is replaced. Otherwise, a full new README is written.
-
     Args:
-        jobs: List of categorized Job objects for stats.
+        jobs: List of categorized Job objects for stats display.
         posted_jobs_path: Path to the posted-jobs ledger.
         output_path: Where to write README.md.
         owner: GitHub username for the clone URL placeholder.
@@ -316,19 +289,6 @@ def generate_readme(
     ledger = _load_posted_jobs(posted_jobs_path)
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     captions_file = f"captions-{today}.md"
-
-    # Build sources table
-    source_lines = ["| Source | Type | URL |", "|--------|------|-----|"]
-    sources_info = [
-        ("Naukri", "Private Sector", "https://www.naukri.com"),
-        ("Indeed India", "Private Sector", "https://in.indeed.com"),
-        ("LinkedIn", "Private Sector", "https://www.linkedin.com"),
-        ("FreeJobAlert", "Government + Private", "https://www.freejobalert.com"),
-        ("SarkariResult", "Government", "https://www.sarkariresult.com"),
-    ]
-    for name, stype, surl in sources_info:
-        source_lines.append(f"| {name} | {stype} | [{surl}]({surl}) |")
-    sources_table = "\n".join(source_lines)
 
     total_categories = len(CATEGORY_MAP)
     source_count = 5
@@ -348,7 +308,7 @@ def generate_readme(
 
     full_readme = README_TEMPLATE.format(
         date=today,
-        sources_table=sources_table,
+        sources_table="",
         owner=owner,
         stats_section=stats_section,
     )
@@ -356,6 +316,6 @@ def generate_readme(
     try:
         with open(output_path, "w", encoding="utf-8") as fh:
             fh.write(full_readme)
-        logger.info("README.md generated at %s", output_path)
+        logger.info("README.md generated at %s with %d jobs.", output_path, len(jobs))
     except OSError as exc:
         logger.error("Failed to write README.md: %s", exc)

@@ -41,6 +41,8 @@ class CaptionConfig:
 
     corporate_header: str = "\U0001f6a8 Hiring Now!"
     government_header: str = "\U0001f3db\ufe0f GOVERNMENT JOB ALERT!"
+    org_label_corporate: str = "Company"
+    org_label_government: str = "Organization"
     separator: str = "\n---\n"
     hashtags_global: List[str] = field(
         default_factory=lambda: ["#jobs", "#indiajobs", "#hiring"]
