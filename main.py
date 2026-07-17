@@ -1,8 +1,10 @@
-"""Main orchestrator for India Job Alerts.
+"""Main pipeline CLI for the India Jobs Board scraper.
 
-Entry-point CLI that wires together scraping, deduplication, categorization,
-caption formatting, and README generation. Provides --run-all, --scrape-only,
---format-only, and --readme-only flags.
+Usage:
+    python main.py --run-all       # Full pipeline
+    python main.py --scrape-only   # Scrape + save, no formatting
+    python main.py --format-only   # Format captions from existing data
+    python main.py --readme-only   # Regenerate README + HTML from existing data
 """
 
 from __future__ import annotations
@@ -10,270 +12,238 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import os
 import sys
 import time
-from typing import List, Optional
+from pathlib import Path
 
-from config import AppConfig, LOG_FORMAT, LOG_DATE_FORMAT
+# ── sys.path setup – MUST come before local imports ──────────────────────────
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent / "scripts"))
+
+from config import Config
 from models import Job, ScraperResult
+from scripts.dedup import deduplicate
+from scripts.categorizer import categorize_all
+from scripts.format_captions import format_all_captions
+from scripts.generate_readme import generate_readme
+from scripts.generate_html_board import generate_html_board
+from scripts.scraper import run_all_scrapers
 
-# ---------------------------------------------------------------------------
-# Logging setup
-# ---------------------------------------------------------------------------
-
-
-def _setup_logging(level: int = logging.INFO) -> None:
-    """Configure the root logger with a consistent format."""
-    logging.basicConfig(
-        level=level,
-        format=LOG_FORMAT,
-        datefmt=LOG_DATE_FORMAT,
-        handlers=[logging.StreamHandler(sys.stdout)],
-    )
-    logging.getLogger("urllib3").setLevel(logging.WARNING)
-    logging.getLogger("requests").setLevel(logging.WARNING)
+# ── Logging setup ────────────────────────────────────────────────────────────
+logging.basicConfig(
+    level=logging.INFO,
+    format=Config.LOG_FORMAT,
+    datefmt=Config.LOG_DATE_FORMAT,
+)
+logger = logging.getLogger("main")
 
 
-# ---------------------------------------------------------------------------
-# Data persistence
-# ---------------------------------------------------------------------------
-
-
-def save_jobs_json(jobs: List[Job], path: str) -> None:
-    """Save scraped jobs to a JSON file.
-
-    Each job is serialized as a dict with all fields.
+def _save_json(data: list[dict] | dict, path: Path) -> None:
+    """Save data as JSON with UTF-8 encoding and indentation.
 
     Args:
-        jobs: List of Job objects to persist.
+        data: A list or dict to serialize.
         path: Output file path.
     """
-    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-    data = [
-        {
-            "title": j.title,
-            "company": j.company,
-            "company_logo": "",
-            "location": j.location,
-            "salary": j.salary,
-            "url": j.url,
-            "source": j.source,
-            "category": j.category,
-            "posted_date": j.posted_date,
-            "last_date": j.last_date,
-            "is_government": j.is_government,
-            "description": j.description,
-            "fingerprint": j.fingerprint,
-        }
-        for j in jobs
-    ]
-    try:
-        with open(path, "w", encoding="utf-8") as fh:
-            json.dump(data, fh, indent=2, ensure_ascii=False)
-        logger = logging.getLogger(__name__)
-        logger.info("Saved %d jobs to %s", len(data), path)
-    except OSError as exc:
-        logging.getLogger(__name__).error("Failed to save jobs JSON: %s", exc)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(data, fh, ensure_ascii=False, indent=2)
+    logger.info("Saved %s", path)
 
 
-# ---------------------------------------------------------------------------
-# Stage runners
-# ---------------------------------------------------------------------------
+def cmd_run_all(cfg: Config) -> int:
+    """Execute the full pipeline: scrape → dedup → categorize → format → generate.
 
+    Args:
+        cfg: Pipeline configuration.
 
-def run_scrape(config: "AppConfig") -> ScraperResult:
-    """Execute the scraping stage."""
-    from scripts.scraper import run_all_scrapers
+    Returns:
+        Exit code (0 for success).
+    """
+    start: float = time.time()
+    logger.info("=== India Jobs Board Pipeline START ===")
 
-    logger = logging.getLogger(__name__)
-    logger.info("=" * 60)
-    logger.info("STAGE 1: Scraping all sources")
-    logger.info("=" * 60)
-
-    result = run_all_scrapers(config)
-    for name, stats in result.source_stats.items():
-        status = "OK" if stats.get("success") else "FAIL"
-        scraped = stats.get("scraped", 0)
-        logger.info("  [%s] %s: %d jobs", status, name, scraped)
-
+    # 1. Scrape
+    logger.info("Step 1/7: Scraping all sources...")
+    result: ScraperResult = run_all_scrapers(cfg)
+    logger.info(
+        "Scraped %d total jobs from %s in %.1fs",
+        result.total_jobs,
+        ", ".join(f"{k}={v}" for k, v in result.source_stats.items()),
+        result.elapsed_seconds,
+    )
     if result.errors:
         for err in result.errors:
-            logger.error("  Scraper error: %s", err)
+            logger.warning("Scraper error: %s", err)
 
-    return result
-
-
-def run_dedup(jobs: List[Job], config: "AppConfig") -> List[Job]:
-    """Execute the deduplication stage."""
-    from scripts.dedup import deduplicate_jobs
-
-    logger = logging.getLogger(__name__)
-    logger.info("=" * 60)
-    logger.info("STAGE 2: Deduplication")
-    logger.info("=" * 60)
-
-    new_jobs = deduplicate_jobs(
-        jobs,
-        posted_jobs_path=config.posted_jobs_file,
-        retention_days=config.dedup.retention_days,
+    # 2. Dedup
+    logger.info("Step 2/7: Deduplicating...")
+    new_jobs: list[Job] = deduplicate(
+        result.jobs,
+        cfg.posted_jobs_file,
+        cfg.DEDUP_RETENTION_DAYS,
     )
-    logger.info("  %d jobs after dedup.", len(new_jobs))
-    return new_jobs
+    result.new_jobs = len(new_jobs)
+    logger.info("New jobs after dedup: %d", len(new_jobs))
+
+    if not new_jobs:
+        logger.info("No new jobs found. Pipeline complete.")
+        elapsed = time.time() - start
+        logger.info("=== Pipeline done in %.1fs ===", elapsed)
+        return 0
+
+    # 3. Categorize
+    logger.info("Step 3/7: Categorizing...")
+    categorize_all(new_jobs)
+
+    # 4. Save jobs-today.json
+    logger.info("Step 4/7: Saving jobs-today.json...")
+    _save_json([j.to_dict() for j in new_jobs], cfg.jobs_today_file)
+
+    # 5. Save posted-jobs.json (already done in dedup, but ensure it exists)
+    logger.info("Step 5/7: Posted history already updated during dedup.")
+
+    # 6. Format captions
+    logger.info("Step 6/7: Formatting captions...")
+    format_all_captions(new_jobs, cfg.captions_file)
+
+    # 7. Generate README + HTML
+    logger.info("Step 7/7: Generating README and HTML board...")
+    generate_readme(new_jobs, cfg.posted_jobs_file, cfg.readme_path)
+    generate_html_board(new_jobs, cfg.html_board_path)
+
+    elapsed: float = time.time() - start
+    logger.info("=== Pipeline complete in %.1fs ===", elapsed)
+    logger.info("Summary: %d new jobs | %d total tracked", len(new_jobs), 0)
+    return 0
 
 
-def run_categorize(jobs: List[Job]) -> List[Job]:
-    """Execute the categorization stage."""
-    from scripts.categorizer import categorize_jobs
+def cmd_scrape_only(cfg: Config) -> int:
+    """Scrape and dedup only; save raw and posted data.
 
-    logger = logging.getLogger(__name__)
-    logger.info("=" * 60)
-    logger.info("STAGE 3: Categorization")
-    logger.info("=" * 60)
+    Args:
+        cfg: Pipeline configuration.
 
-    categorized = categorize_jobs(jobs)
-    categories = {job.category for job in categorized}
-    logger.info("  Categories found: %s", sorted(categories))
-    return categorized
-
-
-def run_format(jobs: List[Job], config: "AppConfig") -> None:
-    """Execute the caption formatting stage."""
-    from scripts.format_captions import format_captions
-
-    logger = logging.getLogger(__name__)
-    logger.info("=" * 60)
-    logger.info("STAGE 4: Caption formatting")
-    logger.info("=" * 60)
-
-    captions = format_captions(jobs, config)
-    logger.info("  %d captions generated.", len(captions))
-
-
-def run_readme(jobs: List[Job], config: "AppConfig") -> None:
-    """Execute the README generation stage."""
-    from scripts.generate_readme_jobs import generate_readme
-
-    logger = logging.getLogger(__name__)
-    logger.info("=" * 60)
-    logger.info("STAGE 5: README generation")
-    logger.info("=" * 60)
-
-    generate_readme(jobs, posted_jobs_path=config.posted_jobs_file, output_path=config.readme_path)
-    logger.info("  README.md updated.")
-
-
-def run_all(config: "AppConfig") -> None:
-    """Run the complete pipeline: scrape → dedup → categorize → format → readme.
-
-    Also saves jobs-today.json with all individual job records.
+    Returns:
+        Exit code.
     """
-    from datetime import datetime, timezone
-
-    logger = logging.getLogger(__name__)
-    overall_start = time.monotonic()
-
-    # Stage 1: Scrape
-    scrape_result = run_scrape(config)
-    all_jobs = scrape_result.jobs
-
-    if not all_jobs:
-        logger.warning("No jobs scraped. Creating empty data files.")
-        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-        save_jobs_json([], os.path.join(config.data_dir, f"jobs-{today}.json"))
-        return
-
-    # Save ALL scraped jobs to jobs-today.json (before dedup)
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    jobs_today_path = os.path.join(config.data_dir, f"jobs-{today}.json")
-    save_jobs_json(all_jobs, jobs_today_path)
-
-    # Stage 2: Dedup
-    new_jobs = run_dedup(all_jobs, config)
-
-    # Stage 3: Categorize
-    categorized = run_categorize(new_jobs if new_jobs else all_jobs)
-
-    # Stage 4: Format captions
-    run_format(categorized, config)
-
-    # Stage 5: README
-    run_readme(categorized, config)
-
-    elapsed = time.monotonic() - overall_start
-    logger.info("=" * 60)
-    logger.info("Pipeline complete in %.1f seconds — %d total, %d new jobs.",
-                elapsed, len(all_jobs), len(new_jobs))
-    logger.info("=" * 60)
+    logger.info("=== Scrape-only mode ===")
+    result: ScraperResult = run_all_scrapers(cfg)
+    new_jobs: list[Job] = deduplicate(
+        result.jobs, cfg.posted_jobs_file, cfg.DEDUP_RETENTION_DAYS,
+    )
+    categorize_all(new_jobs)
+    _save_json([j.to_dict() for j in new_jobs], cfg.jobs_today_file)
+    logger.info("Scrape-only done: %d new jobs", len(new_jobs))
+    return 0
 
 
-# ---------------------------------------------------------------------------
-# CLI
-# ---------------------------------------------------------------------------
+def cmd_format_only(cfg: Config) -> int:
+    """Regenerate captions, README, and HTML from existing jobs-today.json.
+
+    Args:
+        cfg: Pipeline configuration.
+
+    Returns:
+        Exit code.
+    """
+    logger.info("=== Format-only mode ===")
+    if not cfg.jobs_today_file.exists():
+        logger.error("No jobs-today.json found at %s", cfg.jobs_today_file)
+        return 1
+
+    with open(cfg.jobs_today_file, "r", encoding="utf-8") as fh:
+        data: list[dict] = json.load(fh)
+
+    jobs: list[Job] = [Job.from_dict(d) for d in data]
+    logger.info("Loaded %d jobs from %s", len(jobs), cfg.jobs_today_file)
+
+    format_all_captions(jobs, cfg.captions_file)
+    generate_readme(jobs, cfg.posted_jobs_file, cfg.readme_path)
+    generate_html_board(jobs, cfg.html_board_path)
+    logger.info("Format-only done.")
+    return 0
 
 
-def _parse_args(argv: List[str]) -> argparse.Namespace:
-    """Parse command-line arguments."""
+def cmd_readme_only(cfg: Config) -> int:
+    """Regenerate only README and HTML from existing jobs-today.json.
+
+    Args:
+        cfg: Pipeline configuration.
+
+    Returns:
+        Exit code.
+    """
+    logger.info("=== README-only mode ===")
+    if not cfg.jobs_today_file.exists():
+        logger.error("No jobs-today.json found at %s", cfg.jobs_today_file)
+        return 1
+
+    with open(cfg.jobs_today_file, "r", encoding="utf-8") as fh:
+        data: list[dict] = json.load(fh)
+
+    jobs: list[Job] = [Job.from_dict(d) for d in data]
+    generate_readme(jobs, cfg.posted_jobs_file, cfg.readme_path)
+    generate_html_board(jobs, cfg.html_board_path)
+    logger.info("README-only done.")
+    return 0
+
+
+def main() -> int:
+    """Parse arguments and dispatch to the appropriate pipeline command.
+
+    Returns:
+        Exit code (0 for success, non-zero for errors).
+    """
     parser = argparse.ArgumentParser(
-        description="India Job Alerts - automated job aggregator",
+        description="India Jobs Board – Automated Job Aggregator",
     )
     group = parser.add_mutually_exclusive_group()
-    group.add_argument("--run-all", action="store_true",
-                       help="Run the full pipeline")
-    group.add_argument("--scrape-only", action="store_true",
-                       help="Run only the scraping stage")
-    group.add_argument("--format-only", action="store_true",
-                       help="Generate captions from existing data")
-    group.add_argument("--readme-only", action="store_true",
-                       help="Update README stats only")
-    parser.add_argument("--verbose", action="store_true",
-                        help="Enable DEBUG-level logging")
-    return parser.parse_args(argv[1:])
+    group.add_argument(
+        "--run-all",
+        action="store_true",
+        help="Run the full pipeline (scrape -> dedup -> format -> generate)",
+    )
+    group.add_argument(
+        "--scrape-only",
+        action="store_true",
+        help="Scrape, dedup, and categorize only (no README/captions)",
+    )
+    group.add_argument(
+        "--format-only",
+        action="store_true",
+        help="Regenerate captions, README, and HTML from existing jobs-today.json",
+    )
+    group.add_argument(
+        "--readme-only",
+        action="store_true",
+        help="Regenerate only README + HTML from existing jobs-today.json",
+    )
 
+    args = parser.parse_args()
 
-def main(argv: Optional[List[str]] = None) -> None:
-    """Main entry-point."""
-    if argv is None:
-        argv = sys.argv
-
-    args = _parse_args(argv)
-    _setup_logging(level=logging.DEBUG if args.verbose else logging.INFO)
-    logger = logging.getLogger(__name__)
-
-    config = AppConfig.from_env()
-
+    # Default to --run-all if no flag given
     if not any([args.run_all, args.scrape_only, args.format_only, args.readme_only]):
         args.run_all = True
 
+    cfg: Config = Config.get_config()
+
     try:
         if args.scrape_only:
-            result = run_scrape(config)
-            if result.jobs:
-                today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-                save_jobs_json(result.jobs, os.path.join(config.data_dir, f"jobs-{today}.json"))
+            return cmd_scrape_only(cfg)
         elif args.format_only:
-            # Load existing jobs data
-            today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-            jobs_path = os.path.join(config.data_dir, f"jobs-{today}.json")
-            if os.path.exists(jobs_path):
-                with open(jobs_path, "r", encoding="utf-8") as fh:
-                    raw = json.load(fh)
-                jobs = [Job(**item) for item in raw]
-                categorized = run_categorize(jobs)
-                run_format(categorized, config)
-            else:
-                logger.warning("No jobs data found at %s. Run --run-all first.", jobs_path)
+            return cmd_format_only(cfg)
         elif args.readme_only:
-            run_readme([], config)
+            return cmd_readme_only(cfg)
         else:
-            run_all(config)
+            return cmd_run_all(cfg)
     except KeyboardInterrupt:
-        logger.info("Interrupted by user.")
-        sys.exit(130)
-    except Exception as exc:
-        logger.error("Pipeline failed: %s", exc, exc_info=True)
-        sys.exit(1)
+        logger.warning("Pipeline interrupted by user.")
+        return 130
+    except Exception:
+        logger.exception("Pipeline failed with an unhandled error.")
+        return 1
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

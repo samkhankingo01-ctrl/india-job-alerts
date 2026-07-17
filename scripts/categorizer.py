@@ -1,63 +1,64 @@
-"""Categorizer module for India Job Alerts.
-
-Assigns each Job to a category based on keyword matching against
-the CATEGORY_MAP defined in config.py. Falls back to "Other" when
-no keywords match.
-"""
+"""Categorizer – assigns a category to each job based on keyword matching."""
 
 from __future__ import annotations
 
 import logging
-from typing import List
+from typing import ClassVar
 
-from config import CATEGORY_MAP
+from config import Config
 from models import Job
 
 logger = logging.getLogger(__name__)
 
 
-def _match_category(title: str, description: str) -> str:
-    """Determine the best-matching category for a job's text.
+def categorize(job: Job, category_map: dict[str, list[str]]) -> str:
+    """Assign a single category to a job based on title keyword matching.
 
-    Checks both the title and description against every keyword in
-    CATEGORY_MAP. The category with the most keyword matches wins.
-
-    Args:
-        title: Job title string.
-        description: Job description / snippet string.
-
-    Returns:
-        Category name string (e.g. "IT", "Government").
-    """
-    combined = f"{title} {description}".lower()
-    best_category = "Other"
-    best_score = 0
-
-    for category, keywords in CATEGORY_MAP.items():
-        score = sum(1 for kw in keywords if kw.lower() in combined)
-        if score > best_score:
-            best_score = score
-            best_category = category
-
-    return best_category
-
-
-def categorize_jobs(jobs: List[Job]) -> List[Job]:
-    """Assign a category to every job in the list.
-
-    Mutates the Job objects in-place (sets job.category) and returns
-    the same list for chaining convenience.
+    The first matching category in order is used. If nothing matches,
+    returns "Other".
 
     Args:
-        jobs: List of Job objects to classify.
+        job: The Job to categorize.
+        category_map: Mapping of category name -> list of keyword patterns.
 
     Returns:
-        The same list with category fields populated.
+        The assigned category name.
     """
-    stats: dict = {}
+    text: str = (job.title + " " + job.description).lower()
+
+    for category, keywords in category_map.items():
+        for kw in keywords:
+            if kw.lower() in text:
+                logger.debug(
+                    "Job '%s' matched category '%s' via keyword '%s'",
+                    job.title,
+                    category,
+                    kw,
+                )
+                return category
+
+    # Detect government source tags
+    if "government" in (job.title + " " + job.description).lower():
+        return "Government"
+
+    logger.debug("Job '%s' fell through to 'Other'", job.title)
+    return "Other"
+
+
+def categorize_all(jobs: list[Job]) -> list[Job]:
+    """Assign categories to all jobs in-place.
+
+    Args:
+        jobs: List of Job instances to categorize.
+
+    Returns:
+        The same list (mutated in place) for chaining convenience.
+    """
+    category_map: dict[str, list[str]] = Config.CATEGORY_MAP
+    count: int = 0
     for job in jobs:
-        job.category = _match_category(job.title, job.description)
-        stats[job.category] = stats.get(job.category, 0) + 1
-
-    logger.info("Categorization: %s", stats)
+        if not job.category:
+            job.category = categorize(job, category_map)
+            count += 1
+    logger.info("Categorized %d jobs.", count)
     return jobs

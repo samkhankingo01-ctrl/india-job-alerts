@@ -1,355 +1,300 @@
-"""Scraper module for India Job Alerts.
-
-Uses free APIs that work reliably on GitHub Actions:
-1. Google Custom Search JSON API (100 queries/day FREE)
-2. Remotive API (remote jobs, no auth needed)
-3. Arbeitnow API (startup jobs, no auth needed)
-
-All return structured job data with title, company, location, salary, and apply URL.
-"""
+"""Scraper module – fetches jobs from JSearch, Arbeitnow, and Remotive."""
 
 from __future__ import annotations
 
-import hashlib
 import logging
 import os
 import random
-import re
 import time
-from datetime import datetime, timezone
-from typing import List, Optional
-from urllib.parse import quote_plus
+from typing import Any
 
 import requests
-from bs4 import BeautifulSoup
 
-from config import AppConfig, USER_AGENTS
+from config import Config
 from models import Job, ScraperResult
 
 logger = logging.getLogger(__name__)
 
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-def _random_user_agent() -> str:
-    return random.choice(USER_AGENTS)
-
-
-def _make_fingerprint(title: str, company: str, location: str) -> str:
-    raw = f"{title.strip().lower()}|{company.strip().lower()}|{location.strip().lower()}"
-    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
-
-
-def _parse_salary(salary_raw: Optional[str]) -> str:
-    if not salary_raw or not salary_raw.strip():
-        return "Not disclosed"
-    cleaned = " ".join(salary_raw.strip().split())
-    return cleaned or "Not disclosed"
-
-
-# ---------------------------------------------------------------------------
-# Source 1: Google Custom Search JSON API (100/day FREE)
-# ---------------------------------------------------------------------------
-
-def scrape_google_cse(config: AppConfig) -> List[Job]:
-    """Search for India jobs using Google Custom Search JSON API.
-
-    Free tier: 100 queries/day. Needs GOOGLE_API_KEY and GOOGLE_CX
-    environment variables (or GitHub Secrets).
+def _make_jsearch_job(item: dict[str, Any], cfg: Config) -> Job:
+    """Convert a JSearch API response item into a Job model.
 
     Args:
-        config: Application configuration.
+        item: Raw job item from JSearch response.
+        cfg: Pipeline configuration.
 
     Returns:
-        List of Job objects from Google search results.
+        A populated Job instance.
     """
-    api_key = os.getenv("GOOGLE_API_KEY", "")
-    cx = os.getenv("GOOGLE_CX", "")
+    title = str(item.get("job_title", "") or "").strip()
+    company = str(item.get("employer_name", "") or "").strip()
+    city = str(item.get("job_city", "") or "").strip()
+    state = str(item.get("job_state", "") or "").strip()
+    # Build a stable fingerprint-like key for in-source dedup
+    raw_key = f"{title}|{company}|{city}".lower()
 
-    if not api_key or not cx:
-        logger.warning("[google_cse] GOOGLE_API_KEY or GOOGLE_CX not set. Skipping Google CSE.")
-        logger.warning("[google_cse] Set these as GitHub Secrets to enable Google search.")
+    return Job(
+        title=title,
+        company=company,
+        company_logo=str(item.get("employer_logo", "") or ""),
+        city=city,
+        state=state,
+        area=str(item.get("job_country", "") or ""),
+        salary=str(item.get("job_salary", "") or "").replace("None", ""),
+        url=str(item.get("job_apply_link", "") or ""),
+        source="jsearch",
+        posted_date=str(item.get("job_posted_at", "") or ""),
+        posted_date_raw=str(item.get("job_posted_at", "") or ""),
+        description=str(item.get("job_description", "") or ""),
+        employment_type=str(item.get("job_employment_type", "") or ""),
+        is_government=False,
+        is_remote=False,
+        job_id=str(item.get("job_id", "") or ""),
+        fingerprint=raw_key,  # temporary; real fingerprint set in dedup
+    )
+
+
+def scrape_jsearch(cfg: Config) -> list[Job]:
+    """Scrape jobs from the JSearch RapidAPI endpoint.
+
+    Args:
+        cfg: Pipeline configuration.
+
+    Returns:
+        List of deduplicated Job instances from JSearch.
+    """
+    api_key: str = os.getenv("RAPIDAPI_KEY", "")
+    if not api_key:
+        logger.warning(
+            "RAPIDAPI_KEY not set – skipping JSearch scraper."
+        )
         return []
 
-    logger.info("[google_cse] Starting Google Custom Search...")
-
-    queries = [
-        "jobs hiring India 2026 fresher",
-        "latest job openings India software engineer",
-        "government jobs India 2026 sarkari naukri recruitment",
-        "IT jobs India 2026 developer hiring",
-        "banking finance jobs India 2026",
-        "remote work from home jobs India 2026",
-        "healthcare medical jobs India 2026",
-        "engineering jobs India mechanical electrical civil",
-        "sales marketing jobs India 2026",
-        "part time jobs India students 2026",
-    ]
-
-    all_jobs: List[Job] = []
-    seen_urls: set = set()
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-
-    for query in queries:
-        try:
-            url = (
-                f"https://www.googleapis.com/customsearch/v1?"
-                f"key={api_key}&cx={cx}&q={quote_plus(query)}&num=10"
-            )
-            resp = requests.get(
-                url,
-                headers={"User-Agent": _random_user_agent()},
-                timeout=15,
-            )
-            resp.raise_for_status()
-            data = resp.json()
-
-            items = data.get("items", [])
-            for item in items:
-                link = item.get("link", "")
-                if link in seen_urls or not link:
-                    continue
-                seen_urls.add(link)
-
-                title = item.get("title", "")
-                snippet = item.get("snippet", "")
-
-                # Extract company name from snippet or title
-                company = "See listing"
-                company_match = re.search(
-                    r"(?:at|@|\\b(?:Hiring|Recruitment)\b[:\\s]+)([A-Z][A-Za-z0-9&\\s]{2,30})",
-                    title + " " + snippet,
-                )
-                if company_match:
-                    company = company_match.group(1).strip()
-
-                # Extract location
-                location = "India"
-                loc_match = re.search(
-                    r"(Mumbai|Delhi|Bangalore|Bengaluru|Hyderabad|Chennai|Pune|"
-                    r"Kolkata|Noida|Gurgaon|Gurugram|Jaipur|Ahmedabad|Lucknow|"
-                    r"Chandigarh|Kochi|Coimbatore|Indore|Bhopal|Nagpur|"
-                    r"Remote|Work from Home|WFH|All India|Pan India)",
-                    snippet + " " + title,
-                    re.IGNORECASE,
-                )
-                if loc_match:
-                    location = loc_match.group(1).strip()
-
-                # Extract salary
-                salary = "Not disclosed"
-                salary_match = re.search(
-                    r"(?:Rs\.?|₹|INR)\s*[\d,.]+[\s-]*(?:Rs\.?|₹|INR)?\s*[\d,.]*\s*(?:LPA|Lacs|PA|per annum|month|year|/hr)?",
-                    snippet,
-                    re.IGNORECASE,
-                )
-                if salary_match:
-                    salary = salary_match.group(0).strip()
-
-                # Determine if government job
-                is_govt = any(
-                    kw in (title + " " + snippet).lower()
-                    for kw in ["government", "govt", "sarkari", "upsc", "ssc", "ibps",
-                               "railway", "defence", "army", "navy", "air force",
-                               "public sector", "psu", "recruitment"]
-                )
-
-                job = Job(
-                    title=title[:200],
-                    company=company,
-                    company_logo="",
-                    location=location,
-                    salary=salary,
-                    url=link,
-                    source="google_cse",
-                    posted_date=today,
-                    description=snippet[:300] if snippet else "",
-                    is_government=is_govt,
-                )
-                job.fingerprint = _make_fingerprint(job.title, job.company, job.location)
-                all_jobs.append(job)
-
-            time.sleep(1)  # Rate limit: 1 req/sec
-
-        except Exception as exc:
-            logger.error("[google_cse] Query failed: %s", exc)
-
-    logger.info("[google_cse] Found %d job listings.", len(all_jobs))
-    return all_jobs[:config.max_jobs_per_source]
-
-
-# ---------------------------------------------------------------------------
-# Source 2: Remotive API (FREE, no auth needed)
-# ---------------------------------------------------------------------------
-
-def scrape_remotive(config: AppConfig) -> List[Job]:
-    """Fetch remote jobs from Remotive API (free, no auth).
-
-    Filters for jobs mentioning India or worldwide remote roles.
-
-    Args:
-        config: Application configuration.
-
-    Returns:
-        List of Job objects.
-    """
-    logger.info("[remotive] Fetching remote jobs...")
-    jobs: List[Job] = []
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-
-    try:
-        url = "https://remotive.com/api/remote-jobs?limit=50&sort=newest"
-        resp = requests.get(url, timeout=15)
-        resp.raise_for_status()
-        data = resp.json()
-
-        for item in data.get("jobs", [])[:30]:
-            title = item.get("title", "")
-            company = item.get("company_name", "")
-            location = item.get("candidate_required_location", "Remote")
-            url = item.get("url", "")
-            salary = item.get("salary", "")
-            description = item.get("description", "")[:200]
-
-            if not url:
-                continue
-
-            # Prioritize India-remote jobs but keep all remotes
-            if "india" in (location + description + title).lower():
-                location = location or "Remote (India)"
-            else:
-                location = location or "Remote (Worldwide)"
-
-            job = Job(
-                title=title,
-                company=company,
-                company_logo=item.get("company_logo_url", ""),
-                location=location,
-                salary=_parse_salary(salary),
-                url=url,
-                source="remotive",
-                posted_date=today,
-                description=description,
-            )
-            job.fingerprint = _make_fingerprint(job.title, job.company, job.location)
-            jobs.append(job)
-
-    except Exception as exc:
-        logger.error("[remotive] Fetch failed: %s", exc)
-
-    logger.info("[remotive] Found %d remote jobs.", len(jobs))
-    return jobs[:config.max_jobs_per_source]
-
-
-# ---------------------------------------------------------------------------
-# Source 3: Arbeitnow API (FREE, no auth needed)
-# ---------------------------------------------------------------------------
-
-def scrape_arbeitnow(config: AppConfig) -> List[Job]:
-    """Fetch startup jobs from Arbeitnow API (free, no auth).
-
-    Args:
-        config: Application configuration.
-
-    Returns:
-        List of Job objects.
-    """
-    logger.info("[arbeitnow] Fetching startup jobs...")
-    jobs: List[Job] = []
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-
-    try:
-        url = "https://www.arbeitnow.com/api/job-board-api?page=1&per_page=50"
-        resp = requests.get(url, timeout=15)
-        resp.raise_for_status()
-        data = resp.json()
-
-        for item in data.get("data", [])[:30]:
-            title = item.get("title", "")
-            company = item.get("company_name", "")
-            location = item.get("location", "")
-            url = item.get("url", "")
-            salary = item.get("salary", "")
-            tags = item.get("tags", [])
-            remote = item.get("remote", False)
-
-            if not url:
-                continue
-
-            description_parts = tags[:3] if tags else []
-            description = ", ".join(description_parts)
-
-            if remote or "remote" in str(location).lower():
-                location = "Remote" if not location else location
-
-            job = Job(
-                title=title,
-                company=company,
-                company_logo=item.get("company_logo_url", ""),
-                location=location or "India",
-                salary=_parse_salary(salary),
-                url=url,
-                source="arbeitnow",
-                posted_date=today,
-                description=description,
-            )
-            job.fingerprint = _make_fingerprint(job.title, job.company, job.location)
-            jobs.append(job)
-
-    except Exception as exc:
-        logger.error("[arbeitnow] Fetch failed: %s", exc)
-
-    logger.info("[arbeitnow] Found %d startup jobs.", len(jobs))
-    return jobs[:config.max_jobs_per_source]
-
-
-# ---------------------------------------------------------------------------
-# Orchestrator
-# ---------------------------------------------------------------------------
-
-def run_all_scrapers(config: AppConfig) -> ScraperResult:
-    """Run every enabled scraper and aggregate results.
-
-    Args:
-        config: Application configuration.
-
-    Returns:
-        ScraperResult with all jobs, per-source stats, and errors.
-    """
-    start_time = time.monotonic()
-    all_jobs: List[Job] = []
-    source_stats: dict = {}
-    errors: list = []
-
-    scrapers = {
-        "google_cse": scrape_google_cse,
-        "remotive": scrape_remotive,
-        "arbeitnow": scrape_arbeitnow,
+    headers: dict[str, str] = {
+        "X-RapidAPI-Key": api_key,
+        "X-RapidAPI-Host": "jsearch.p.rapidapi.com",
     }
 
-    for name, scraper_fn in scrapers.items():
-        try:
-            jobs = scraper_fn(config)
-            all_jobs.extend(jobs)
-            source_stats[name] = {"success": True, "scraped": len(jobs)}
-        except Exception as exc:
-            msg = f"[{name}] Scraper failed: {exc}"
-            logger.error(msg)
-            errors.append(msg)
-            source_stats[name] = {"success": False, "scraped": 0, "error": str(exc)}
+    seen: set[str] = set()
+    jobs: list[Job] = []
 
-    elapsed = time.monotonic() - start_time
+    for query in cfg.SEARCH_QUERIES:
+        url: str = (
+            f"https://jsearch.p.rapidapi.com/search?"
+            f"query={requests.utils.quote(query)}&page=1&num_pages=2"
+        )
+        try:
+            logger.info("JSearch querying: %s", query)
+            resp: requests.Response = requests.get(
+                url, headers=headers, timeout=30,
+            )
+            resp.raise_for_status()
+            data: dict[str, Any] = resp.json()
+            items: list[dict[str, Any]] = data.get("data", [])
+            for item in items:
+                job: Job = _make_jsearch_job(item, cfg)
+                key: str = job.fingerprint
+                if key not in seen:
+                    seen.add(key)
+                    jobs.append(job)
+            logger.debug("JSearch got %d jobs for query: %s", len(items), query)
+            # Be polite to the API
+            time.sleep(random.uniform(0.5, 1.5))
+        except Exception:
+            logger.exception("JSearch failed for query: %s", query)
+
+    logger.info("JSearch total unique jobs: %d", len(jobs))
+    return jobs
+
+
+def _make_arbeitnow_job(item: dict[str, Any], cfg: Config) -> Job:
+    """Convert an Arbeitnow API response item into a Job model.
+
+    Args:
+        item: Raw job item from Arbeitnow response.
+        cfg: Pipeline configuration.
+
+    Returns:
+        A populated Job instance.
+    """
+    title: str = str(item.get("title", "") or "").strip()
+    company: str = str(item.get("company_name", "") or "").strip()
+    raw_key: str = f"{title}|{company}|".lower()
+    salary: str = str(item.get("salary", "") or "")
+    if salary in ("None", "NaN", ""):
+        salary = ""
+
+    return Job(
+        title=title,
+        company=company,
+        company_logo=str(item.get("company_logo_url", "") or ""),
+        city=str(item.get("location", "") or ""),
+        state="",
+        area="",
+        salary=salary,
+        url=str(item.get("url", "") or ""),
+        source="arbeitnow",
+        posted_date=str(item.get("created_at", "") or ""),
+        posted_date_raw=str(item.get("created_at", "") or ""),
+        description="",
+        employment_type=str(item.get("employment_type", "") or ""),
+        is_government=False,
+        is_remote=bool(item.get("remote", False)),
+        job_id=str(item.get("id", "") or ""),
+        fingerprint=raw_key,
+    )
+
+
+def scrape_arbeitnow(cfg: Config) -> list[Job]:
+    """Scrape jobs from the Arbeitnow job board API (no auth needed).
+
+    Args:
+        cfg: Pipeline configuration.
+
+    Returns:
+        List of deduplicated Job instances from Arbeitnow.
+    """
+    seen: set[str] = set()
+    jobs: list[Job] = []
+
+    for page in range(1, 13):
+        url: str = (
+            f"https://www.arbeitnow.com/api/job-board-api?"
+            f"page={page}&per_page=50"
+        )
+        try:
+            logger.info("Arbeitnow fetching page %d", page)
+            resp: requests.Response = requests.get(url, timeout=30)
+            resp.raise_for_status()
+            data: dict[str, Any] = resp.json()
+            items: list[dict[str, Any]] = data.get("data", [])
+            for item in items:
+                job: Job = _make_arbeitnow_job(item, cfg)
+                key: str = job.fingerprint
+                if key not in seen:
+                    seen.add(key)
+                    jobs.append(job)
+            logger.debug("Arbeitnow page %d: %d jobs", page, len(items))
+            if len(items) < 50:
+                logger.info("Arbeitnow: fewer than 50 on page %d, stopping.", page)
+                break
+            time.sleep(random.uniform(0.3, 0.8))
+        except Exception:
+            logger.exception("Arbeitnow failed on page %d", page)
+
+    logger.info("Arbeitnow total unique jobs: %d", len(jobs))
+    return jobs
+
+
+def _make_remotive_job(item: dict[str, Any], cfg: Config) -> Job:
+    """Convert a Remotive API response item into a Job model.
+
+    Args:
+        item: Raw job item from Remotive response.
+        cfg: Pipeline configuration.
+
+    Returns:
+        A populated Job instance.
+    """
+    title: str = str(item.get("title", "") or "").strip()
+    company: str = str(item.get("company_name", "") or "").strip()
+    raw_key: str = f"{title}|{company}|".lower()
+
+    return Job(
+        title=title,
+        company=company,
+        company_logo=str(item.get("company_logo_url", "") or ""),
+        city=str(item.get("candidate_required_location", "") or ""),
+        state="",
+        area="",
+        salary=str(item.get("salary", "") or "").replace("None", ""),
+        url=str(item.get("url", "") or ""),
+        source="remotive",
+        posted_date=str(item.get("publication_date", "") or ""),
+        posted_date_raw=str(item.get("publication_date", "") or ""),
+        description=str(item.get("description", "") or ""),
+        employment_type="",
+        is_government=False,
+        is_remote=True,
+        job_id=str(item.get("id", "") or ""),
+        fingerprint=raw_key,
+    )
+
+
+def scrape_remotive(cfg: Config) -> list[Job]:
+    """Scrape jobs from the Remotive remote-jobs API (no auth needed).
+
+    Args:
+        cfg: Pipeline configuration.
+
+    Returns:
+        List of deduplicated Job instances from Remotive.
+    """
+    seen: set[str] = set()
+    jobs: list[Job] = []
+    url: str = "https://remotive.com/api/remote-jobs?limit=50&sort=newest"
+
+    try:
+        logger.info("Remotive fetching jobs")
+        resp: requests.Response = requests.get(url, timeout=30)
+        resp.raise_for_status()
+        data: dict[str, Any] = resp.json()
+        items: list[dict[str, Any]] = data.get("jobs", [])
+        for item in items:
+            job: Job = _make_remotive_job(item, cfg)
+            key: str = job.fingerprint
+            if key not in seen:
+                seen.add(key)
+                jobs.append(job)
+        logger.info("Remotive total jobs: %d", len(jobs))
+    except Exception:
+        logger.exception("Remotive scraper failed")
+
+    return jobs
+
+
+def run_all_scrapers(cfg: Config) -> ScraperResult:
+    """Run all three scrapers and aggregate results.
+
+    Args:
+        cfg: Pipeline configuration.
+
+    Returns:
+        A ScraperResult with all jobs, source stats, and errors.
+    """
+    start: float = time.time()
+    errors: list[str] = []
+    all_jobs: list[Job] = []
+    source_stats: dict[str, int] = {}
+
+    scrapers: list[tuple[str, callable]] = [
+        ("jsearch", scrape_jsearch),
+        ("arbeitnow", scrape_arbeitnow),
+        ("remotive", scrape_remotive),
+    ]
+
+    for name, scraper_fn in scrapers:
+        try:
+            jobs: list[Job] = scraper_fn(cfg)
+            source_stats[name] = len(jobs)
+            all_jobs.extend(jobs)
+            logger.info("Source %s: %d jobs", name, len(jobs))
+        except Exception:
+            msg: str = f"Scraper {name} raised an unhandled exception"
+            logger.exception(msg)
+            errors.append(msg)
+            source_stats[name] = 0
+
+    elapsed: float = time.time() - start
     logger.info(
-        "Scraping complete: %d jobs from %d sources in %.1fs.",
+        "All scrapers done: %d total jobs in %.2fs",
         len(all_jobs),
-        len(source_stats),
         elapsed,
     )
 
     return ScraperResult(
         total_jobs=len(all_jobs),
+        new_jobs=0,  # will be set after dedup
         jobs=all_jobs,
         source_stats=source_stats,
         errors=errors,

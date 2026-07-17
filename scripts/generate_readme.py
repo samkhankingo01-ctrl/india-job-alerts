@@ -1,6 +1,113 @@
-# 🇮🇳 India Jobs Board
+"""README generator – builds a professional project README.md."""
 
-[![Python](https://img.shields.io/badge/Python-3.12+-blue.svg)](https://www.python.org/) [![License](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE) [![Auto Update](https://img.shields.io/badge/Auto-Update-brightgreen.svg)](./.github/workflows/update-jobs.yml) [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](./CONTRIBUTING.md)
+from __future__ import annotations
+
+import json
+import logging
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+from models import Job
+
+logger = logging.getLogger(__name__)
+
+
+def _badges() -> str:
+    """Return the README badge line."""
+    return (
+        "[![Python](https://img.shields.io/badge/Python-3.12+-blue.svg)]"
+        "(https://www.python.org/) "
+        "[![License](https://img.shields.io/badge/License-MIT-green.svg)]"
+        "(./LICENSE) "
+        "[![Auto Update](https://img.shields.io/badge/Auto-Update-brightgreen.svg)]"
+        "(./.github/workflows/update-jobs.yml) "
+        "[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)]"
+        "(./CONTRIBUTING.md)"
+    )
+
+
+def _category_breakdown(jobs: list[Job]) -> str:
+    """Build a markdown table of category counts.
+
+    Args:
+        jobs: List of categorized Job instances.
+
+    Returns:
+        A markdown-formatted category breakdown table.
+    """
+    counts: dict[str, int] = {}
+    total: int = len(jobs)
+    for job in jobs:
+        cat: str = job.category or "Other"
+        counts[cat] = counts.get(cat, 0) + 1
+
+    rows: list[str] = []
+    rows.append("| Category | Count | % |")
+    rows.append("|----------|-------|---|")
+    for cat in sorted(counts, key=lambda c: counts[c], reverse=True):
+        pct: str = f"{(counts[cat] / total * 100):.1f}%" if total else "0%"
+        rows.append(f"| {cat} | {counts[cat]} | {pct} |")
+
+    return "\n".join(rows)
+
+
+def _top_jobs_table(jobs: list[Job], limit: int = 20) -> str:
+    """Build a markdown table of the top N jobs.
+
+    Args:
+        jobs: List of Job instances.
+        limit: Maximum number of rows.
+
+    Returns:
+        A markdown-formatted table.
+    """
+    rows: list[str] = []
+    rows.append("| # | Title | Company | Location | Source |")
+    rows.append("|---|-------|---------|----------|--------|")
+
+    for i, job in enumerate(jobs[:limit], start=1):
+        title: str = job.title[:50].replace("|", "\\|")
+        company: str = job.company[:30].replace("|", "\\|")
+        location: str = (job.city or "Remote").replace("|", "\\|")
+        source: str = job.source.replace("|", "\\|")
+        rows.append(f"| {i} | {title} | {company} | {location} | {source} |")
+
+    return "\n".join(rows)
+
+
+def _current_time() -> str:
+    """Return the current UTC time as an ISO string."""
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+
+
+def generate_readme(
+    jobs: list[Job],
+    posted_path: Path,
+    output_path: Path,
+    owner: str = "samkhankingo01-ctrl",
+) -> None:
+    """Generate a professional README.md for the jobs board.
+
+    Args:
+        jobs: List of current Job instances.
+        posted_path: Path to posted-jobs.json for stats.
+        output_path: Path to write README.md.
+        owner: GitHub owner/repo prefix for links.
+    """
+    total: int = len(jobs)
+    posted_total: int = 0
+    if posted_path.exists():
+        try:
+            with open(posted_path, "r", encoding="utf-8") as fh:
+                posted_data: dict[str, Any] = json.load(fh)
+                posted_total = posted_data.get("totalCount", 0)
+        except Exception:
+            posted_total = total
+
+    readme: str = f"""# 🇮🇳 India Jobs Board
+
+{_badges()}
 
 > Automatically aggregated job listings from multiple sources, updated every 6 hours.  
 > Built for job seekers in India — curated, categorized, and ready to explore.
@@ -9,10 +116,10 @@
 
 ## 📊 Live Stats
 
-- **Jobs in this update:** 969
-- **Total unique jobs tracked:** 969
-- **Last updated:** 2026-07-17 10:30:17 UTC
-- **Live board:** [jobsboard.samkhan.in](https://samkhankingo01-ctrl.github.io/jobs-repo/) (→ `docs/index.html`)
+- **Jobs in this update:** {total}
+- **Total unique jobs tracked:** {posted_total}
+- **Last updated:** {_current_time()}
+- **Live board:** [jobsboard.samkhan.in](https://{owner}.github.io/jobs-repo/) (→ `docs/index.html`)
 
 ---
 
@@ -63,7 +170,7 @@
 
 ```bash
 # 1. Clone
-git clone https://github.com/samkhankingo01-ctrl/jobs-repo.git
+git clone https://github.com/{owner}/jobs-repo.git
 cd jobs-repo
 
 # 2. Install dependencies
@@ -133,56 +240,27 @@ Each job produces an Instagram-ready caption block:
 
 ## 📈 Category Breakdown
 
-| Category | Count | % |
-|----------|-------|---|
-| Other | 390 | 40.2% |
-| Marketing | 229 | 23.6% |
-| IT | 134 | 13.8% |
-| Remote | 43 | 4.4% |
-| Sales | 42 | 4.3% |
-| Banking | 42 | 4.3% |
-| HR | 42 | 4.3% |
-| Freshers | 22 | 2.3% |
-| Healthcare | 6 | 0.6% |
-| Startup | 6 | 0.6% |
-| Engineering | 5 | 0.5% |
-| Government | 5 | 0.5% |
-| Part Time | 2 | 0.2% |
-| Education | 1 | 0.1% |
+{_category_breakdown(jobs)}
 
 ---
 
 ## 🔥 Top 20 Listings
 
-| # | Title | Company | Location | Source |
-|---|-------|---------|----------|--------|
-| 1 | Engineering Lead (Part-time) | Qunomedical | Berlin | arbeitnow |
-| 2 | Werkstudent Projektmanagement (W/M/D) | secupay AG | Pulsnitz | arbeitnow |
-| 3 | Business Development Manager ( m/w/d)- Süddeutschl | Rain for Rent International | Bochum | arbeitnow |
-| 4 | Bilanzbuchhalter (m/w/d) | PRIME HR Agentur® | Bremen | arbeitnow |
-| 5 | Mediengestalter:in Digital & Print (m/w/d) | Lock4Safe Marketing | Kleve | arbeitnow |
-| 6 | Senior Accountant / Bilanzbuchhalter (m/w/d) | PRIME HR Agentur® | Augsburg | arbeitnow |
-| 7 | Wirtschaftsinformatiker / It-Projektmanager  - Vol | Steamulation Jobs | Lohr am Main | arbeitnow |
-| 8 | Werkstudent (m/w/d) Informatik / Wirtschaftsinform | R Raymon Bicycles GmbH | Schweinfurt | arbeitnow |
-| 9 | Senior Marketing Manager (m/w/d) - Berlin-Mitte | VisionIQ marketing & communica | Berlin | arbeitnow |
-| 10 | Projektkoordinator:in Werbetechnik \|Kundenberatung | Birmoser Werbetechnik GmbH | Tuntenhausen | arbeitnow |
-| 11 | Internship in Operations (all genders) | Helpling GmbH & Co. KG | Berlin | arbeitnow |
-| 12 | Pflichtpraktikant Business Development, HR & Offic | Digitalagenten | Berlin | arbeitnow |
-| 13 | SAP WM/EWM Consultant | Pertemps ERP | Cologne | arbeitnow |
-| 14 | Marketingkoordinator DACH | Vermeiren Deutschland GmbH | Willich | arbeitnow |
-| 15 | SAP SD Consultant | Pertemps ERP | Mannheim | arbeitnow |
-| 16 | Werkstudent:in Film & Festival Operations (Remote) | Miralot | Berlin | arbeitnow |
-| 17 | Change & OE Consultant: Führung & digitale Transfo | Chili and Change GmbH | Frankfurt am Main | arbeitnow |
-| 18 | KI-Manager (IHK) Weiterbildung \| 100 % Remote | DataSmart Point GmbH | Berlin | arbeitnow |
-| 19 | Senior CRM Manager (f/m/x) | exmox GmbH | Hamburg | arbeitnow |
-| 20 | Service Desk Spezialist - Onsite in Köln (m/w/d) | think about IT GmbH | Cologne | arbeitnow |
+{_top_jobs_table(jobs)}
 
 ---
 
 ## 🛡️ License
 
-MIT © samkhankingo01-ctrl – see [LICENSE](./LICENSE) for details.
+MIT © {owner} – see [LICENSE](./LICENSE) for details.
 
 ---
 
 *Made with ❤️ for the Indian job-seeking community. Star this repo if you find it useful!*
+"""
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(output_path, "w", encoding="utf-8") as fh:
+        fh.write(readme)
+
+    logger.info("README written to %s (%d chars)", output_path, len(readme))

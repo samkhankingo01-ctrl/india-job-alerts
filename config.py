@@ -1,219 +1,188 @@
-"""Configuration for India Job Alerts.
-
-Central configuration using Python dataclasses. All constants, URLs, output paths,
-dedup settings, and caption format settings live here. Environment variables
-override defaults where applicable.
-"""
+"""Configuration dataclass and factory for the India Jobs Board pipeline."""
 
 from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
-
-
-@dataclass(frozen=True)
-class SourceConfig:
-    """Configuration for a single job source."""
-
-    name: str
-    base_url: str
-    search_url: str
-    enabled: bool = True
-    rate_limit_seconds: float = 2.0
-    max_retries: int = 3
+from pathlib import Path
+from typing import Any, ClassVar
 
 
 @dataclass
-class DedupConfig:
-    """Deduplication settings."""
+class Config:
+    """Central configuration for the India Jobs Board scraper pipeline."""
 
-    fingerprint_algorithm: str = "sha256"
-    fingerprint_fields: List[str] = field(
-        default_factory=lambda: ["title", "company", "location"]
-    )
-    retention_days: int = 7
-
-
-@dataclass
-class CaptionConfig:
-    """Instagram caption format settings."""
-
-    corporate_header: str = "\U0001f6a8 Hiring Now!"
-    government_header: str = "\U0001f3db\ufe0f GOVERNMENT JOB ALERT!"
-    org_label_corporate: str = "Company"
-    org_label_government: str = "Organization"
-    separator: str = "\n---\n"
-    hashtags_global: List[str] = field(
-        default_factory=lambda: ["#jobs", "#indiajobs", "#hiring"]
-    )
-
-
-@dataclass
-class AppConfig:
-    """Application-wide configuration."""
-
-    # --- Sources ---
-    sources: List[SourceConfig] = field(default_factory=lambda: [
-        SourceConfig(
-            name="google_cse",
-            base_url="https://www.googleapis.com",
-            search_url="https://www.googleapis.com/customsearch/v1",
-        ),
-        SourceConfig(
-            name="remotive",
-            base_url="https://remotive.com",
-            search_url="https://remotive.com/api/remote-jobs",
-        ),
-        SourceConfig(
-            name="arbeitnow",
-            base_url="https://www.arbeitnow.com",
-            search_url="https://www.arbeitnow.com/api/job-board-api",
-        ),
+    # ── API sources ──────────────────────────────────────────────────────────
+    sources: list[dict[str, str]] = field(default_factory=lambda: [
+        {"name": "jsearch", "base_url": "https://jsearch.p.rapidapi.com"},
+        {"name": "arbeitnow", "base_url": "https://www.arbeitnow.com/api"},
+        {"name": "remotive", "base_url": "https://remotive.com/api"},
     ])
 
-    # --- Output paths ---
-    data_dir: str = "data"
-    output_dir: str = "output"
-    posted_jobs_file: str = "data/posted-jobs.json"
-    captions_filename_template: str = "captions-{date}.md"
-    readme_path: str = "README.md"
+    # ── JSearch queries (India-specific) ─────────────────────────────────────
+    SEARCH_QUERIES: ClassVar[list[str]] = [
+        "software engineer jobs in India",
+        "government jobs India 2025",
+        "IT jobs India freshers",
+        "banking jobs India",
+        "remote jobs India",
+        "data scientist jobs India",
+        "mechanical engineer jobs India",
+        "MBA jobs India",
+        "teaching jobs India",
+        "healthcare jobs India",
+        "PSU jobs India 2025",
+        "startup jobs Bangalore India",
+        "sales jobs India",
+        "part time jobs India",
+        "HR jobs India",
+    ]
 
-    # --- Dedup ---
-    dedup: DedupConfig = field(default_factory=DedupConfig)
+    # ── Category mapping ─────────────────────────────────────────────────────
+    CATEGORY_MAP: ClassVar[dict[str, list[str]]] = {
+        "IT": [
+            "software engineer", "software developer", "software",
+            "developer", "programmer", "data scientist", "data engineer",
+            "machine learning", "artificial intelligence", "ai engineer",
+            "full stack", "frontend", "backend", "devops", "cloud engineer",
+            "aws", "azure", "cyber security", "security analyst",
+            "network engineer", "system admin", "system administrator",
+            "database", "sql", "dba", "qa engineer", "qa tester",
+            "mobile developer", "android developer", "ios developer",
+            "flutter", "web developer", "php", "python",
+            "java developer", "javascript", "react", "node", "nodejs",
+        ],
+        "Government": [
+            "government", "govt", "sarkari", "public sector",
+            "civil service", "ias", "ips", "defence", "railway",
+            "bank clerk", "ssc", "upsc", "state government",
+            "central government", "ministry", "municipal",
+        ],
+        "Freshers": [
+            "fresher", "fresh graduate", "entry level",
+            "trainee", "intern", "internship", "graduate trainee",
+            "campus", "0-1 year", "0 year", "freshers",
+        ],
+        "Remote": [
+            "remote", "work from home", "wfh", "telecommute",
+            "virtual", "distributed", "anywhere", "home based",
+        ],
+        "Banking": [
+            "bank", "banking", "finance", "financial",
+            "investment", "insurance", "nbfc", "loan", "credit",
+            "treasury", "accounting", "accountant", "audit",
+            "chartered accountant", "cfa", "rbi",
+        ],
+        "Engineering": [
+            "mechanical", "civil engineer", "electrical", "electronics",
+            "chemical engineer", "automobile", "aerospace", "manufacturing",
+            "production", "industrial", "design engineer", "cad",
+            "structural", "project engineer", "site engineer",
+        ],
+        "Healthcare": [
+            "doctor", "nurse", "medical", "pharma", "pharmaceutical",
+            "hospital", "clinical", "healthcare", "health", "surgeon",
+            "physician", "dentist", "lab technician", "radiologist",
+            "biotech", "biotechnology", "therapist",
+        ],
+        "Sales": [
+            "sales", "business development", "bde", "account manager",
+            "client", "customer success", "inside sales", "field sales",
+            "telesales", "retail", "showroom", "bdm",
+        ],
+        "Marketing": [
+            "marketing", "digital marketing", "seo", "sem", "social media",
+            "content", "brand", "advertising", "pr", "public relations",
+            "growth", "analytics", "copywriter", "creative",
+        ],
+        "Startup": [
+            "startup", "founder", "co-founder", "early stage",
+            "venture", "seed", "entrepreneur",
+        ],
+        "PSU": [
+            "psu", "public sector undertaking", "bhel", "ongc",
+            "sail", "ntpc", "iocl", "bpcl", "hpcl", "gail",
+            "coal india", "power grid", "nhpc",
+        ],
+        "Part Time": [
+            "part time", "part-time", "freelance", "contract",
+            "gig", "temporary", "weekend", "hourly",
+        ],
+        "Education": [
+            "teacher", "professor", "faculty", "lecturer", "education",
+            "school", "college", "university", "academic", "research",
+            "tutor", "principal", "dean", "training",
+        ],
+        "HR": [
+            "hr", "human resource", "recruiter", "recruitment",
+            "talent acquisition", "payroll", "people operations",
+            "hrbp", "hr business partner", "employee relations",
+            "l&d", "learning and development",
+        ],
+    }
 
-    # --- Captions ---
-    caption: CaptionConfig = field(default_factory=CaptionConfig)
+    # ── Scraping / dedup settings ────────────────────────────────────────────
+    USER_AGENTS: ClassVar[list[str]] = [
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:126.0) Gecko/20100101 Firefox/126.0",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/605.1.15 "
+        "(KHTML, like Gecko) Version/17.5 Safari/605.1.15",
+    ]
 
-    # --- Limits ---
-    max_jobs_per_source: int = 50
+    MAX_JOBS_PER_SOURCE: int = 50
+    DEDUP_RETENTION_DAYS: int = 7
 
-    # --- GitHub ---
-    github_token: Optional[str] = field(default_factory=lambda: os.getenv("GITHUB_TOKEN"))
+    # ── Paths ────────────────────────────────────────────────────────────────
+    data_dir: Path = field(default_factory=lambda: Path("data"))
+    output_dir: Path = field(default_factory=lambda: Path("output"))
+    docs_dir: Path = field(default_factory=lambda: Path("docs"))
 
+    @property
+    def posted_jobs_file(self) -> Path:
+        """Path to the posted-jobs.json fingerprint store."""
+        return self.data_dir / "posted-jobs.json"
+
+    @property
+    def jobs_today_file(self) -> Path:
+        """Path to today's scraped jobs JSON."""
+        return self.data_dir / "jobs-today.json"
+
+    @property
+    def captions_file(self) -> Path:
+        """Path to the formatted Instagram captions."""
+        return self.output_dir / "captions.txt"
+
+    @property
+    def readme_path(self) -> Path:
+        """Path to the generated README."""
+        return Path("README.md")
+
+    @property
+    def html_board_path(self) -> Path:
+        """Path to the generated HTML job board."""
+        return self.docs_dir / "index.html"
+
+    # ── Logging ──────────────────────────────────────────────────────────────
+    LOG_FORMAT: ClassVar[str] = (
+        "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+    )
+    LOG_DATE_FORMAT: ClassVar[str] = "%Y-%m-%d %H:%M:%S"
+
+    # ── Factory ──────────────────────────────────────────────────────────────
     @classmethod
-    def from_env(cls) -> "AppConfig":
-        """Build config with environment variable overrides.
+    def get_config(cls, **overrides: Any) -> Config:
+        """Create a Config instance, resolving RAPIDAPI_KEY from environment.
 
-        Reads MAX_JOBS_PER_SOURCE and DEDUP_DAYS from environment.
+        Args:
+            **overrides: Any field overrides for the dataclass.
+
+        Returns:
+            A fully initialized Config instance.
         """
-        max_jobs = int(os.getenv("MAX_JOBS_PER_SOURCE", "50"))
-        dedup_days = int(os.getenv("DEDUP_DAYS", "7"))
-        config = cls()
-        config.max_jobs_per_source = max_jobs
-        config.dedup.retention_days = dedup_days
-        return config
-
-
-# ---------------------------------------------------------------------------
-# Category keyword map — used by categorizer.py
-# ---------------------------------------------------------------------------
-
-CATEGORY_MAP: Dict[str, List[str]] = {
-    "IT": [
-        "software", "developer", "engineer", "programmer", "python", "java",
-        "javascript", "react", "angular", "node", "full stack", "backend",
-        "frontend", "devops", "cloud", "aws", "azure", "gcp", "docker",
-        "kubernetes", "data science", "machine learning", "ai", "artificial intelligence",
-        "cyber security", "security", "network", "system admin", "it support",
-        "database", "sql", "qa", "testing", "mobile", "android", "ios",
-        "flutter", "blockchain", "web developer", "app developer", "php",
-        ".net", "c#", "c++", "ruby", "swift", "golang", "rust", "scala",
-        "tech lead", "cto", "sre", "platform", "infrastructure", "scrum",
-    ],
-    "Government": [
-        "government", "govt", "sarkari", "public sector", "psu", "central govt",
-        "state govt", "railway", "defence", "bank of", "rbi", "ssc", "upsc",
-        "bpsc", "mppsc", "uppsc", "civil service", "ias", "ips", "irs",
-        "ifos", "navy", "army", "air force", "police", "forest", "pwd",
-        "municipal", "corporation", "nisg", "nabard", "sebi", "irda",
-        "parliament", "lok sabha", "rajya sabha", "legislative", "district court",
-        "high court", "supreme court", "income tax", "customs", "gst",
-        "excise", "post office", "india post", "bsnl", "mtnl", "psu jobs",
-        "rrb", "ibps", "sbi", "fci", "coal india", "ongc", "gail",
-    ],
-    "Freshers": [
-        "fresher", "freshers", "fresh graduate", "trainee", "intern",
-        "entry level", "graduate trainee", "campus", "apprenticeship",
-        "apprentice", "junior", "management trainee", "0 year",
-        "zero experience", "walk-in", "walkin", "no experience",
-    ],
-    "Remote": [
-        "remote", "work from home", "wfh", "work from anywhere", "telecommute",
-        "virtual", "distributed", "hybrid", "home based", "online",
-        "freelance", "freelancer", "contract",
-    ],
-    "Banking": [
-        "banking", "bank", "finance", "financial", "investment", "equity",
-        "mutual fund", "insurance", "loans", "credit", "nbfc", "fintech",
-        "accounting", "accountant", "audit", "tax", "treasury", "chartered",
-        "cfa", "ca", "actuarial", "underwriter", "wealth management",
-    ],
-    "Engineering": [
-        "civil engineer", "mechanical", "electrical", "electronics",
-        "chemical", "structural", "aeronautical", "automobile", "marine",
-        "production", "manufacturing", "industrial", "design engineer",
-        "site engineer", "project engineer", "maintenance", "quality engineer",
-        "safety engineer", "environmental engineer", "bim", "cad", "autocad",
-        "solidworks", "catia", "revit", "primavera", "piping",
-    ],
-    "Healthcare": [
-        "doctor", "medical", "nurse", "hospital", "healthcare", "pharma",
-        "pharmacy", "clinical", "surgeon", "physician", "dentist", "ayush",
-        "biomedical", "biotech", "biotechnology", "lab technician",
-        "radiologist", "pathology", "therapist", "psychologist", "counselor",
-        "veterinary", "public health", "dietitian", "nutrition",
-    ],
-    "Sales": [
-        "sales", "business development", "bde", "bdm", "account executive",
-        "account manager", "client relation", "customer success",
-        "presales", "inside sales", "field sales", "territory",
-        "telesales", "retail", "showroom", "franchise", "channel sales",
-    ],
-    "Marketing": [
-        "marketing", "digital marketing", "seo", "sem", "ppc", "social media",
-        "content writer", "content marketing", "copywriter", "brand",
-        "growth", "analytics", "market research", "advertising", "pr",
-        "public relations", "communications", "media", "event management",
-        "influencer", "affiliate", "email marketing", "graphic designer",
-        "ui", "ux", "product design", "video editor", "animation",
-    ],
-    "Startup": [
-        "startup", "founding", "co-founder", "head of", "vp of",
-        "director of", "early stage", "seed", "venture", "growth hacker",
-    ],
-    "PSU": [
-        "psu", "public sector undertaking", "bhel", "ntpc", "nhpc",
-        "power grid", "sail", "ntpc", "nhpc", "hal", "bel", "beml",
-        "mazagon", "garden reach", "hmt", "itdc", "hudco",
-    ],
-    "Part Time": [
-        "part time", "part-time", "weekend", "evening", "temporary",
-        "temp", "seasonal", "hourly", "gig", "side hustle",
-    ],
-    "Education": [
-        "teacher", "professor", "lecturer", "faculty", "education",
-        "school", "college", "university", "academic", "research",
-        "training", "instructor", "tutor", "principal", "dean",
-        "librarian", "administration", "admissions", "edtech",
-    ],
-    "HR": [
-        "hr", "human resource", "recruiter", "recruitment", "talent",
-        "payroll", "compensation", "benefits", "people operations",
-        "l&d", "learning and development", "hrbp", "hr business partner",
-        "onboarding", "employee", "workforce", "staffing",
-    ],
-}
-
-# User-agent rotation list for scrapers
-USER_AGENTS: List[str] = [
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:126.0) Gecko/20100101 Firefox/126.0",
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 14.5; rv:126.0) Gecko/20100101 Firefox/126.0",
-]
-
-# Logging defaults
-LOG_FORMAT: str = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
-LOG_DATE_FORMAT: str = "%Y-%m-%d %H:%M:%S"
+        cfg = cls(**overrides)
+        # Ensure directories exist
+        cfg.data_dir.mkdir(parents=True, exist_ok=True)
+        cfg.output_dir.mkdir(parents=True, exist_ok=True)
+        cfg.docs_dir.mkdir(parents=True, exist_ok=True)
+        return cfg

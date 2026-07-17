@@ -1,105 +1,60 @@
-"""Caption formatter for India Job Alerts.
-
-Generates Instagram-ready captions (Markdown) from Job objects and writes
-them to dated output files. Uses ASCII-safe emoji characters that render
-correctly on all platforms.
-"""
+"""Caption formatter – produces Instagram-ready captions for job listings."""
 
 from __future__ import annotations
 
 import logging
-import os
-from datetime import datetime, timezone
-from typing import Dict, List
+from pathlib import Path
 
-from config import AppConfig
 from models import CaptionBlock, Job
 
 logger = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------
-# Category-specific hashtags
-# ---------------------------------------------------------------------------
-
-CATEGORY_HASHTAG_MAP: Dict[str, str] = {
-    "IT": "#ittech #techjobs #softwarejobs",
-    "Government": "#governmentjobs #sarkarinaukri #govtjobs",
-    "Freshers": "#fresherjobs #entrylevel #campusplacement",
-    "Remote": "#remotejobs #wfh #workfromhome",
-    "Banking": "#bankingjobs #financejobs #bankjobs",
-    "Engineering": "#engineeringjobs #corejobs #engineer",
-    "Healthcare": "#healthcarejobs #medicaljobs #doctorjobs",
-    "Sales": "#salesjobs #bde #businessdevelopment",
-    "Marketing": "#marketingjobs #digitalmarketing #contentjobs",
-    "Startup": "#startupjobs #founders #startuplife",
-    "PSU": "#psujobs #publicsector #govtjobs",
-    "Part Time": "#parttimejobs #gigeconomy #sidehustle",
-    "Education": "#educationjobs #teachingjobs #academicjobs",
-    "HR": "#hrjobs #recruitment #talentacquisition",
-    "Other": "#jobsearch #career",
-}
+# Base hashtags applied to every caption
+_BASE_HASHTAGS: list[str] = [
+    "jobs",
+    "indiajobs",
+    "hiring",
+    "jobsearch",
+    "careergoals",
+    "jobseekers",
+    "india",
+]
 
 
-def _get_category_hashtags(category: str) -> str:
-    """Return category-specific hashtags."""
-    return CATEGORY_HASHTAG_MAP.get(category, "#jobsearch #career")
-
-
-# ---------------------------------------------------------------------------
-# Caption building
-# ---------------------------------------------------------------------------
-
-
-def build_caption(job: Job, config: AppConfig) -> CaptionBlock:
-    """Build a single Instagram-ready caption for one Job.
-
-    Applies the government header variant when job.is_government is True.
+def format_caption(job: Job) -> CaptionBlock:
+    """Produce a single Instagram-ready caption block from a Job.
 
     Args:
-        job: The Job to render.
-        config: Application configuration for caption settings.
+        job: The Job instance to format.
 
     Returns:
-        CaptionBlock with full caption text and metadata.
+        A CaptionBlock with formatted text and metadata.
     """
-    cfg = config.caption
+    salary: str = job.salary if job.salary else "Not Disclosed"
+    location: str = job.city or "Anywhere"
+    if job.state:
+        location += f", {job.state}"
 
-    if job.is_government:
-        header = cfg.government_header
-        org_label = "Organization"
-        last_date_line = f"\nLast Date: {job.last_date}" if job.last_date else ""
-    else:
-        header = cfg.corporate_header
-        org_label = "Company"
-        last_date_line = ""
+    category_tag: list[str] = []
+    if job.category and job.category != "Other":
+        cat_lower: str = job.category.lower().replace(" ", "")
+        category_tag.append(cat_lower)
 
-    category_hashtags = _get_category_hashtags(job.category)
-    global_hashtags = " ".join(cfg.hashtags_global)
+    hashtags: list[str] = _BASE_HASHTAGS + category_tag
 
-    lines = [
-        header,
-        "",
-        f"{org_label}: {job.company}",
-        f"Role: {job.title}",
-        f"Location: {job.location}",
-        f"Salary: {job.salary}",
-        f"Apply: {job.url}",
-    ]
-
-    if last_date_line:
-        lines.append(last_date_line)
-
-    lines.extend([
-        "",
-        f"{global_hashtags} {category_hashtags}",
-        cfg.separator,
-    ])
-
-    all_hashtags = f"{global_hashtags} {category_hashtags}"
-    hashtags = [h.strip() for h in all_hashtags.split() if h.strip()]
+    text: str = (
+        f"🚨 Hiring Now!\n\n"
+        f"🏢 Company: {job.company}\n"
+        f"💼 Role: {job.title}\n"
+        f"📍 Location: {location}\n"
+        f"💰 Salary: {salary}\n"
+        f"🔗 Apply: {job.url}\n\n"
+        + " ".join(f"#{h}" for h in hashtags)
+        + "\n---"
+    )
 
     return CaptionBlock(
-        text="\n".join(lines),
+        text=text,
         job_title=job.title,
         job_company=job.company,
         is_government=job.is_government,
@@ -107,40 +62,21 @@ def build_caption(job: Job, config: AppConfig) -> CaptionBlock:
     )
 
 
-def format_captions(jobs: List[Job], config: AppConfig) -> List[CaptionBlock]:
-    """Generate captions for a list of jobs and write them to a dated file.
+def format_all_captions(jobs: list[Job], output_path: Path) -> None:
+    """Format captions for all jobs and write to a single file.
 
     Args:
-        jobs: List of categorized Job objects.
-        config: Application configuration.
-
-    Returns:
-        List of CaptionBlock objects generated.
+        jobs: List of Job instances to format.
+        output_path: Path where the captions file will be written.
     """
-    if not jobs:
-        logger.warning("format_captions called with empty job list; nothing to write.")
-        return []
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    blocks: list[str] = []
 
-    captions: List[CaptionBlock] = []
     for job in jobs:
-        captions.append(build_caption(job, config))
+        cb: CaptionBlock = format_caption(job)
+        blocks.append(cb.text)
 
-    # Write to dated output file
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    filename = config.captions_filename_template.format(date=today)
-    output_path = os.path.join(config.output_dir, filename)
-    os.makedirs(config.output_dir, exist_ok=True)
+    with open(output_path, "w", encoding="utf-8") as fh:
+        fh.write("\n\n\n".join(blocks))
 
-    try:
-        with open(output_path, "w", encoding="utf-8") as fh:
-            fh.write(f"# India Job Alerts - {today}\n\n")
-            fh.write(f"**Total Jobs Today:** {len(jobs)}\n\n---\n\n")
-            for i, cb in enumerate(captions, 1):
-                fh.write(f"## Post #{i}\n\n")
-                fh.write(cb.text)
-                fh.write("\n")
-        logger.info("Wrote %d captions to %s", len(captions), output_path)
-    except OSError as exc:
-        logger.error("Failed to write captions file %s: %s", output_path, exc)
-
-    return captions
+    logger.info("Wrote %d captions to %s", len(blocks), output_path)
