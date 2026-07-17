@@ -1,4 +1,16 @@
-"""Scraper module – fetches jobs from JSearch, Arbeitnow, and Remotive."""
+"""Scraper module – fetches INDIA-ONLY jobs and preserves exact locations.
+
+Sources:
+  * JSearch (RapidAPI)  – primary. Supports ``country=in`` and returns
+    ``job_city`` + ``job_state`` per posting (best location fidelity).
+  * Arbeitnow           – secondary / fallback. Filtered to India only.
+  * Remotive            – secondary / fallback. Filtered to India only.
+
+Hard guarantee: any job whose location is NOT an Indian location is dropped.
+Locations are split into ``state`` / ``city`` / ``area`` via the
+``location_parser`` module, and the original raw string is kept in the Job so
+nothing is ever replaced with just "India".
+"""
 
 from __future__ import annotations
 
@@ -12,26 +24,96 @@ import requests
 
 from config import Config
 from models import Job, ScraperResult
+from scripts.location_parser import (
+    enrich_job_location,
+    is_india_location,
+    parse_location,
+)
 
 logger = logging.getLogger(__name__)
 
 
-def _make_jsearch_job(item: dict[str, Any], cfg: Config) -> Job:
-    """Convert a JSearch API response item into a Job model.
+# ── Helpers ─────────────────────────────────────────────────────────────────
+def _finalize_location(job: Job) -> Job:
+    """Normalize a job's location in place into state/city/area fields.
 
-    Args:
-        item: Raw job item from JSearch response.
-        cfg: Pipeline configuration.
-
-    Returns:
-        A populated Job instance.
+    Also captures the original raw location string into ``location_raw`` so
+    nothing is ever lost or replaced with just "India".
     """
+    parsed = enrich_job_location(job)
+    job.state = parsed.get("state", "")
+    job.city = parsed.get("city", "")
+    job.area = parsed.get("area", "")
+    # Preserve the original posting location verbatim
+    raw_parts = [p for p in (job.area, job.city, job.state) if p]
+    if raw_parts and not job.location_raw:
+        job.location_raw = ", ".join(raw_parts)
+    return job
+
+
+def _keep_india_only(jobs: list[Job]) -> list[Job]:
+    """Drop any job whose location is not Indian.
+
+    A job is kept if it has an explicit Indian state, an Indian city, OR the
+    literal token "India"/"Bharat" in its raw location.
+    """
+    kept: list[Job] = []
+    dropped: int = 0
+    for job in jobs:
+        combined = ", ".join(
+            p for p in (job.area, job.city, job.state) if p
+        )
+        if is_india_location(combined):
+            kept.append(job)
+        else:
+            dropped += 1
+    if dropped:
+        logger.info("India-filter: dropped %d non-Indian jobs.", dropped)
+    return kept
+
+
+def _normalize_posted_date(value: Any) -> str:
+    """Best-effort normalization of a posted-date value to ISO ``YYYY-MM-DD``.
+
+    Accepts epoch seconds/millis, ISO strings, and empty values.
+    """
+    if not value:
+        return ""
+    s = str(value).strip()
+    if not s:
+        return ""
+    # Epoch seconds / millis
+    if s.isdigit():
+        try:
+            n = int(s)
+            if n > 10_000_000_000:  # millis
+                n //= 1000
+            from datetime import datetime, timezone
+
+            return datetime.fromtimestamp(n, tz=timezone.utc).strftime(
+                "%Y-%m-%d"
+            )
+        except (ValueError, OSError):
+            return s
+    # ISO-ish string → take the date portion
+    return s.split("T")[0][:10] if len(s) >= 10 else s
+
+
+# ── JSearch ─────────────────────────────────────────────────────────────────
+def _make_jsearch_job(item: dict[str, Any]) -> Job:
+    """Convert a JSearch API response item into a Job model."""
     title = str(item.get("job_title", "") or "").strip()
     company = str(item.get("employer_name", "") or "").strip()
     city = str(item.get("job_city", "") or "").strip()
     state = str(item.get("job_state", "") or "").strip()
-    # Build a stable fingerprint-like key for in-source dedup
-    raw_key = f"{title}|{company}|{city}".lower()
+    salary = str(item.get("job_salary", "") or "")
+    salary = "" if salary.lower() in ("none", "nan") else salary
+    posted_raw = str(
+        item.get("job_posted_at_datetime_utc", "") or ""
+    ) or str(item.get("job_posted_at", "") or "")
+
+    # Build the verbatim location from city + state (area not provided by API)
+    loc_parts = [p for p in (city, state) if p]
 
     return Job(
         title=title,
@@ -39,39 +121,32 @@ def _make_jsearch_job(item: dict[str, Any], cfg: Config) -> Job:
         company_logo=str(item.get("employer_logo", "") or ""),
         city=city,
         state=state,
-        area=str(item.get("job_country", "") or ""),
-        salary=str(item.get("job_salary", "") or "").replace("None", ""),
-        url=str(item.get("job_apply_link", "") or ""),
+        area="",
+        location_raw=", ".join(loc_parts),
+        salary=salary,
+        url=str(item.get("job_apply_link", "") or "")
+        or str(item.get("job_google_link", "") or ""),
         source="jsearch",
-        posted_date=str(item.get("job_posted_at", "") or ""),
-        posted_date_raw=str(item.get("job_posted_at", "") or ""),
-        description=str(item.get("job_description", "") or ""),
+        posted_date=_normalize_posted_date(posted_raw),
+        posted_date_raw=str(posted_raw),
+        description=str(item.get("job_description", "") or "")[:500],
         employment_type=str(item.get("job_employment_type", "") or ""),
         is_government=False,
-        is_remote=False,
+        is_remote=str(item.get("work_from_home", "") or "").lower()
+        in ("true", "1", "yes"),
         job_id=str(item.get("job_id", "") or ""),
-        fingerprint=raw_key,  # temporary; real fingerprint set in dedup
     )
 
 
 def scrape_jsearch(cfg: Config) -> list[Job]:
-    """Scrape jobs from the JSearch RapidAPI endpoint.
+    """Scrape INDIA jobs from the JSearch RapidAPI endpoint.
 
-    NOTE: JSearch API endpoints are currently returning 404 on RapidAPI.
-    This scraper is kept as a placeholder. If JSearch returns, update
-    the URL in this function.
-
-    Args:
-        cfg: Pipeline configuration.
-
-    Returns:
-        List of deduplicated Job instances from JSearch.
+    Uses ``country=in`` so only India postings are returned, then applies a
+    secondary hard India-filter as a safety net.
     """
     api_key: str = os.getenv("RAPIDAPI_KEY", "")
     if not api_key:
-        logger.info(
-            "RAPIDAPI_KEY not set - skipping JSearch scraper."
-        )
+        logger.info("RAPIDAPI_KEY not set - skipping JSearch scraper.")
         return []
 
     headers: dict[str, str] = {
@@ -79,228 +154,204 @@ def scrape_jsearch(cfg: Config) -> list[Job]:
         "X-RapidAPI-Host": "jsearch.p.rapidapi.com",
     }
 
-    # Try multiple endpoint patterns (JSearch keeps changing their URL)
     endpoints = [
         "https://jsearch.p.rapidapi.com/search",
         "https://jsearch.p.rapidapi.com/v1/search",
-        "https://jsearch.p.rapidapi.com/api/jobs/search",
     ]
 
-    seen: set[str] = set()
-    jobs: list[Job] = []
     working_url: str | None = None
-
-    # Find working endpoint first
     for endpoint in endpoints:
         try:
-            test_url = f"{endpoint}?query=jobs&page=1&num_pages=1"
-            resp = requests.get(test_url, headers=headers, timeout=10)
+            test_url = (
+                f"{endpoint}?query=jobs+in+India&country=in"
+                f"&page=1&num_pages=1"
+            )
+            resp = requests.get(test_url, headers=headers, timeout=15)
             if resp.status_code == 200:
-                data = resp.json()
-                if data.get("data"):
+                if resp.json().get("data"):
                     working_url = endpoint
-                    logger.info("JSearch working endpoint found: %s", endpoint)
+                    logger.info("JSearch working endpoint: %s", endpoint)
                     break
             elif resp.status_code == 429:
-                # 429 = endpoint exists but rate limited = correct URL
-                working_url = endpoint
-                logger.info("JSearch endpoint rate-limited (correct URL): %s", endpoint)
+                working_url = endpoint  # correct URL, just rate limited
+                logger.info("JSearch rate-limited (correct URL): %s", endpoint)
                 break
             else:
-                logger.debug("JSearch endpoint %s returned %d", endpoint, resp.status_code)
+                logger.debug("JSearch %s -> %d", endpoint, resp.status_code)
         except Exception:
             continue
 
     if not working_url:
-        logger.warning("JSearch: No working endpoint found - API may be down. Skipping.")
+        logger.warning("JSearch: no working endpoint found. Skipping.")
         return []
 
+    seen: set[str] = set()
+    jobs: list[Job] = []
     for query in cfg.SEARCH_QUERIES:
-        url: str = (
-            f"{working_url}?"
-            f"query={requests.utils.quote(query)}&page=1&num_pages=2"
+        url = (
+            f"{working_url}?query={requests.utils.quote(query)}"
+            f"&country=in&page=1&num_pages=2"
         )
         try:
             logger.info("JSearch querying: %s", query)
-            resp: requests.Response = requests.get(
-                url, headers=headers, timeout=30,
-            )
+            resp = requests.get(url, headers=headers, timeout=30)
             if resp.status_code == 429:
                 logger.warning("JSearch rate limited, stopping.")
                 break
             resp.raise_for_status()
-            data: dict[str, Any] = resp.json()
-            items: list[dict[str, Any]] = data.get("data", [])
+            items = resp.json().get("data", [])
             for item in items:
-                job: Job = _make_jsearch_job(item, cfg)
-                key: str = job.fingerprint
-                if key not in seen:
+                job = _make_jsearch_job(item)
+                _finalize_location(job)
+                key = f"{job.title}|{job.company}|{job.city}".lower()
+                if key not in seen and job.city:
                     seen.add(key)
                     jobs.append(job)
             time.sleep(random.uniform(0.5, 1.5))
         except Exception:
             logger.exception("JSearch failed for query: %s", query)
 
-    logger.info("JSearch total unique jobs: %d", len(jobs))
+    jobs = _keep_india_only(jobs)
+    logger.info("JSearch total unique India jobs: %d", len(jobs))
     return jobs
 
 
-def _make_arbeitnow_job(item: dict[str, Any], cfg: Config) -> Job:
-    """Convert an Arbeitnow API response item into a Job model.
-
-    Args:
-        item: Raw job item from Arbeitnow response.
-        cfg: Pipeline configuration.
-
-    Returns:
-        A populated Job instance.
-    """
-    title: str = str(item.get("title", "") or "").strip()
-    company: str = str(item.get("company_name", "") or "").strip()
-    raw_key: str = f"{title}|{company}|".lower()
-    salary: str = str(item.get("salary", "") or "")
-    if salary in ("None", "NaN", ""):
+# ── Arbeitnow ───────────────────────────────────────────────────────────────
+def _make_arbeitnow_job(item: dict[str, Any]) -> Job:
+    """Convert an Arbeitnow API response item into a Job model."""
+    title = str(item.get("title", "") or "").strip()
+    company = str(item.get("company_name", "") or "").strip()
+    location = str(item.get("location", "") or "")
+    salary = str(item.get("salary", "") or "")
+    if salary.lower() in ("none", "nan"):
         salary = ""
+    posted_raw = str(item.get("created_at", "") or "")
 
+    parsed = parse_location(location)
     return Job(
         title=title,
         company=company,
         company_logo=str(item.get("company_logo_url", "") or ""),
-        city=str(item.get("location", "") or ""),
-        state="",
-        area="",
+        city=parsed["city"],
+        state=parsed["state"],
+        area=parsed["area"],
+        location_raw=parsed["location_raw"] or location,
         salary=salary,
         url=str(item.get("url", "") or ""),
         source="arbeitnow",
-        posted_date=str(item.get("created_at", "") or ""),
-        posted_date_raw=str(item.get("created_at", "") or ""),
-        description="",
+        posted_date=_normalize_posted_date(posted_raw),
+        posted_date_raw=posted_raw,
+        description=str(item.get("description", "") or "")[:500],
         employment_type=str(item.get("employment_type", "") or ""),
         is_government=False,
         is_remote=bool(item.get("remote", False)),
-        job_id=str(item.get("id", "") or ""),
-        fingerprint=raw_key,
+        job_id=str(item.get("slug", "") or ""),
     )
 
 
 def scrape_arbeitnow(cfg: Config) -> list[Job]:
-    """Scrape jobs from the Arbeitnow job board API (no auth needed).
-
-    Args:
-        cfg: Pipeline configuration.
-
-    Returns:
-        List of deduplicated Job instances from Arbeitnow.
-    """
+    """Scrape jobs from Arbeitnow, keeping ONLY India postings."""
     seen: set[str] = set()
     jobs: list[Job] = []
 
-    for page in range(1, 11):
-        url: str = (
+    for page in range(1, 16):
+        url = (
             f"https://www.arbeitnow.com/api/job-board-api?"
             f"page={page}&per_page=50"
         )
         try:
             logger.info("Arbeitnow fetching page %d", page)
-            resp: requests.Response = requests.get(url, timeout=30)
+            resp = requests.get(url, timeout=30)
             resp.raise_for_status()
-            data: dict[str, Any] = resp.json()
-            items: list[dict[str, Any]] = data.get("data", [])
+            items = resp.json().get("data", [])
             for item in items:
-                job: Job = _make_arbeitnow_job(item, cfg)
-                key: str = job.fingerprint
-                if key not in seen:
+                job = _make_arbeitnow_job(item)
+                # Hard India filter BEFORE dedup
+                loc = ", ".join(
+                    p for p in (job.area, job.city, job.state) if p
+                )
+                if not is_india_location(loc):
+                    continue
+                _finalize_location(job)
+                key = f"{job.title}|{job.company}|{job.city}".lower()
+                if key not in seen and job.city:
                     seen.add(key)
                     jobs.append(job)
-            logger.debug("Arbeitnow page %d: %d jobs", page, len(items))
             if len(items) < 50:
-                logger.info("Arbeitnow: fewer than 50 on page %d, stopping.", page)
                 break
             time.sleep(random.uniform(1.0, 2.0))
         except Exception:
             logger.exception("Arbeitnow failed on page %d", page)
 
-    logger.info("Arbeitnow total unique jobs: %d", len(jobs))
+    logger.info("Arbeitnow total unique India jobs: %d", len(jobs))
     return jobs
 
 
-def _make_remotive_job(item: dict[str, Any], cfg: Config) -> Job:
-    """Convert a Remotive API response item into a Job model.
+# ── Remotive ────────────────────────────────────────────────────────────────
+def _make_remotive_job(item: dict[str, Any]) -> Job:
+    """Convert a Remotive API response item into a Job model."""
+    title = str(item.get("title", "") or "").strip()
+    company = str(item.get("company_name", "") or "").strip()
+    location = str(item.get("candidate_required_location", "") or "")
+    salary = str(item.get("salary", "") or "")
+    if salary.lower() in ("none", "nan"):
+        salary = ""
+    posted_raw = str(item.get("publication_date", "") or "")
 
-    Args:
-        item: Raw job item from Remotive response.
-        cfg: Pipeline configuration.
-
-    Returns:
-        A populated Job instance.
-    """
-    title: str = str(item.get("title", "") or "").strip()
-    company: str = str(item.get("company_name", "") or "").strip()
-    raw_key: str = f"{title}|{company}|".lower()
-
+    parsed = parse_location(location)
     return Job(
         title=title,
         company=company,
         company_logo=str(item.get("company_logo_url", "") or ""),
-        city=str(item.get("candidate_required_location", "") or ""),
-        state="",
-        area="",
-        salary=str(item.get("salary", "") or "").replace("None", ""),
+        city=parsed["city"],
+        state=parsed["state"],
+        area=parsed["area"],
+        location_raw=parsed["location_raw"] or location,
+        salary=salary,
         url=str(item.get("url", "") or ""),
         source="remotive",
-        posted_date=str(item.get("publication_date", "") or ""),
-        posted_date_raw=str(item.get("publication_date", "") or ""),
-        description=str(item.get("description", "") or ""),
+        posted_date=_normalize_posted_date(posted_raw),
+        posted_date_raw=posted_raw,
+        description=str(item.get("description", "") or "")[:500],
         employment_type="",
         is_government=False,
         is_remote=True,
         job_id=str(item.get("id", "") or ""),
-        fingerprint=raw_key,
     )
 
 
 def scrape_remotive(cfg: Config) -> list[Job]:
-    """Scrape jobs from the Remotive remote-jobs API (no auth needed).
-
-    Args:
-        cfg: Pipeline configuration.
-
-    Returns:
-        List of deduplicated Job instances from Remotive.
-    """
+    """Scrape jobs from Remotive, keeping ONLY India postings."""
     seen: set[str] = set()
     jobs: list[Job] = []
-    url: str = "https://remotive.com/api/remote-jobs?limit=50&sort=newest"
+    url = "https://remotive.com/api/remote-jobs?limit=200&sort=newest"
 
     try:
         logger.info("Remotive fetching jobs")
-        resp: requests.Response = requests.get(url, timeout=30)
+        resp = requests.get(url, timeout=30)
         resp.raise_for_status()
-        data: dict[str, Any] = resp.json()
-        items: list[dict[str, Any]] = data.get("jobs", [])
+        items = resp.json().get("jobs", [])
         for item in items:
-            job: Job = _make_remotive_job(item, cfg)
-            key: str = job.fingerprint
-            if key not in seen:
+            job = _make_remotive_job(item)
+            loc = ", ".join(p for p in (job.area, job.city, job.state) if p)
+            if not is_india_location(loc):
+                continue
+            _finalize_location(job)
+            key = f"{job.title}|{job.company}|{job.city}".lower()
+            if key not in seen and job.city:
                 seen.add(key)
                 jobs.append(job)
-        logger.info("Remotive total jobs: %d", len(jobs))
     except Exception:
         logger.exception("Remotive scraper failed")
 
+    logger.info("Remotive total unique India jobs: %d", len(jobs))
     return jobs
 
 
+# ── Orchestrator ────────────────────────────────────────────────────────────
 def run_all_scrapers(cfg: Config) -> ScraperResult:
-    """Run all three scrapers and aggregate results.
-
-    Args:
-        cfg: Pipeline configuration.
-
-    Returns:
-        A ScraperResult with all jobs, source stats, and errors.
-    """
-    start: float = time.time()
+    """Run all India-only scrapers and aggregate results."""
+    start = time.time()
     errors: list[str] = []
     all_jobs: list[Job] = []
     source_stats: dict[str, int] = {}
@@ -313,26 +364,24 @@ def run_all_scrapers(cfg: Config) -> ScraperResult:
 
     for name, scraper_fn in scrapers:
         try:
-            jobs: list[Job] = scraper_fn(cfg)
+            jobs = scraper_fn(cfg)
             source_stats[name] = len(jobs)
             all_jobs.extend(jobs)
-            logger.info("Source %s: %d jobs", name, len(jobs))
+            logger.info("Source %s: %d India jobs", name, len(jobs))
         except Exception:
-            msg: str = f"Scraper {name} raised an unhandled exception"
+            msg = f"Scraper {name} raised an unhandled exception"
             logger.exception(msg)
             errors.append(msg)
             source_stats[name] = 0
 
-    elapsed: float = time.time() - start
+    elapsed = time.time() - start
     logger.info(
-        "All scrapers done: %d total jobs in %.2fs",
-        len(all_jobs),
-        elapsed,
+        "All scrapers done: %d India jobs in %.2fs", len(all_jobs), elapsed
     )
 
     return ScraperResult(
         total_jobs=len(all_jobs),
-        new_jobs=0,  # will be set after dedup
+        new_jobs=0,
         jobs=all_jobs,
         source_stats=source_stats,
         errors=errors,

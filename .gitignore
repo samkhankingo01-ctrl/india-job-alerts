@@ -44,8 +44,11 @@ coverage.xml
 .env
 .env.local
 
-# Data (keep tracked files)
-data/jobs-today.json
+# Local backups / scratch data (the live jobs-today.json, posted-jobs.json
+# and docs/index.html are intentionally TRACKED so the board auto-updates).
+data/*.old-germany-backup
+data/*.bak
+data/*.tmp
 
 # Output
-output/captions.txt
+output/*.tmp

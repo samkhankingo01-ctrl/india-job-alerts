@@ -51,10 +51,10 @@ class TestComputeFingerprint:
         assert all(c in "0123456789abcdef" for c in fp)
 
     def test_hash_content(self) -> None:
-        """Verify the fingerprint is the expected SHA-256."""
-        j = Job(title="A", company="B", city="C")
+        """Verify the fingerprint is the expected SHA-256 (title|company|city|area)."""
+        j = Job(title="A", company="B", city="C", area="D")
         fp = compute_fingerprint(j)
-        expected = hashlib.sha256("a|b|c".encode("utf-8")).hexdigest()
+        expected = hashlib.sha256("a|b|c|d".encode("utf-8")).hexdigest()
         assert fp == expected
 
 

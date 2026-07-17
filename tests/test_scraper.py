@@ -125,14 +125,15 @@ class TestJobModel:
             assert getattr(j2, field) == getattr(j1, field), f"Field {field} mismatch"
 
     def test_to_dict_keys(self) -> None:
-        """to_dict should include all expected keys."""
+        """to_dict should include all expected keys (incl. location_raw)."""
         j = Job()
         d = j.to_dict()
         expected_keys = {
             "title", "company", "company_logo", "city", "state", "area",
-            "salary", "url", "source", "category", "posted_date",
-            "posted_date_raw", "last_date", "description", "employment_type",
-            "is_government", "is_remote", "fingerprint", "job_id",
+            "location_raw", "salary", "url", "source", "category",
+            "posted_date", "posted_date_raw", "last_date", "description",
+            "employment_type", "is_government", "is_remote", "fingerprint",
+            "job_id",
         }
         assert set(d.keys()) == expected_keys
 

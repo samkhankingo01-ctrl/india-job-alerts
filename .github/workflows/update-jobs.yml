@@ -31,6 +31,10 @@ jobs:
           RAPIDAPI_KEY: ${{ secrets.RAPIDAPI_KEY }}
         run: python main.py --run-all
 
+      - name: Verify jobs-today.json fields & India-only filter
+        run: |
+          python -m pytest tests/test_job_fields.py tests/test_location_parser.py -v
+
       - name: Commit and push changes
         run: |
           git config user.name "github-actions[bot]"

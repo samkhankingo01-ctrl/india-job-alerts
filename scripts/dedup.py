@@ -27,7 +27,8 @@ def compute_fingerprint(job: Job) -> str:
         A 64-character SHA-256 hex digest string.
     """
     raw: str = (
-        f"{job.title.strip()}|{job.company.strip()}|{job.city.strip()}".strip().lower()
+        f"{job.title.strip()}|{job.company.strip()}|{job.city.strip()}"
+        f"|{job.area.strip()}".strip().lower()
     )
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 

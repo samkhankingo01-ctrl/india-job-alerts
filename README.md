@@ -9,9 +9,9 @@
 
 ## 📊 Live Stats
 
-- **Jobs in this update:** 969
-- **Total unique jobs tracked:** 969
-- **Last updated:** 2026-07-17 10:30:17 UTC
+- **Jobs in this update:** 7
+- **Total unique jobs tracked:** 7
+- **Last updated:** 2026-07-17 11:40:06 UTC
 - **Live board:** [jobsboard.samkhan.in](https://samkhankingo01-ctrl.github.io/jobs-repo/) (→ `docs/index.html`)
 
 ---
@@ -20,17 +20,66 @@
 
 ```
 ┌─────────────┐     ┌──────────────┐     ┌───────────────┐
-│  Scrapers   │ --> │  Dedup +     │ --> │  Captions +   │
-│  (JSearch,  │     │  Categorize  │     │  README +     │
-│  Arbeitnow, │     │              │     │  HTML Board    │
-│  Remotive)  │     │              │     │                │
+│  Scrapers   │ --> │  India-filter│ --> │  Captions +   │
+│  (JSearch,  │     │  + Location  │     │  README +     │
+│  Arbeitnow, │     │  split       │     │  HTML Board    │
+│  Remotive)  │     │  + Dedup     │     │                │
 └─────────────┘     └──────────────┘     └───────────────┘
 ```
 
-1. **Scrape** – Pulls jobs from JSearch (RapidAPI), Arbeitnow, and Remotive.
-2. **Dedup** – SHA-256 fingerprinting ensures no duplicate posts.
-3. **Categorize** – Keyword matching assigns jobs to 14 categories.
-4. **Deliver** – Instagram captions, README, and an interactive HTML board.
+1. **Scrape** – Pulls jobs from JSearch (RapidAPI `country=in`), Arbeitnow, Remotive.
+2. **India filter** – Hard filter drops any job whose location is not Indian.
+3. **Location split** – Each location is split into **State / City / Area**; the
+   original string is preserved verbatim in `location_raw`. Locations are never
+   replaced with just "India".
+4. **Dedup** – SHA-256 fingerprinting (title + company + city + area).
+5. **Categorize** – Keyword matching assigns jobs to 14 categories.
+6. **Deliver** – Captions, README, and an interactive HTML board.
+
+---
+
+## 📍 Location Fields (per job)
+
+Every job in `data/jobs-today.json` carries these location fields:
+
+| Field | Description |
+|-------|-------------|
+| `state` | Indian State / UT (e.g. `Maharashtra`, `Delhi`, `Karnataka`) |
+| `city` | City (e.g. `Mumbai`, `New Delhi`, `Bangalore`) |
+| `area` | Locality / area, if available (e.g. `Dadar`, `Connaught Place`, `Whitefield`) |
+| `location_raw` | Complete location EXACTLY as on the original posting |
+
+Example JSON:
+```json
+{
+  "state": "Maharashtra",
+  "city": "Mumbai",
+  "area": "Dadar",
+  "location_raw": "Dadar, Mumbai, Maharashtra"
+}
+```
+
+---
+
+## 🎛️ Filtering
+
+The live HTML board (`docs/index.html`) supports filtering by:
+
+- **State** – all Indian states/UTs present in the data
+- **City** – all cities present
+- **Category** – 14 categories (IT, Government, Freshers, …)
+- **Company** – all companies present
+- **Source** – jsearch / arbeitnow / remotive
+- **Free-text search** – title, company, area, city, description
+
+---
+
+## 🃏 What each job card shows
+
+Every card on the board displays: **Company Logo**, **Company Name**,
+**Job Title**, **State**, **City**, **Area** (if available), **Salary** (if
+available), **Posted Date**, **Source**, and an **Apply** button that always
+opens the **original job page** (`url` from the source).
 
 ---
 
@@ -135,47 +184,25 @@ Each job produces an Instagram-ready caption block:
 
 | Category | Count | % |
 |----------|-------|---|
-| Other | 390 | 40.2% |
-| Marketing | 229 | 23.6% |
-| IT | 134 | 13.8% |
-| Remote | 43 | 4.4% |
-| Sales | 42 | 4.3% |
-| Banking | 42 | 4.3% |
-| HR | 42 | 4.3% |
-| Freshers | 22 | 2.3% |
-| Healthcare | 6 | 0.6% |
-| Startup | 6 | 0.6% |
-| Engineering | 5 | 0.5% |
-| Government | 5 | 0.5% |
-| Part Time | 2 | 0.2% |
-| Education | 1 | 0.1% |
+| IT | 3 | 42.9% |
+| Marketing | 1 | 14.3% |
+| Government | 1 | 14.3% |
+| HR | 1 | 14.3% |
+| Engineering | 1 | 14.3% |
 
 ---
 
 ## 🔥 Top 20 Listings
 
-| # | Title | Company | Location | Source |
-|---|-------|---------|----------|--------|
-| 1 | Engineering Lead (Part-time) | Qunomedical | Berlin | arbeitnow |
-| 2 | Werkstudent Projektmanagement (W/M/D) | secupay AG | Pulsnitz | arbeitnow |
-| 3 | Business Development Manager ( m/w/d)- Süddeutschl | Rain for Rent International | Bochum | arbeitnow |
-| 4 | Bilanzbuchhalter (m/w/d) | PRIME HR Agentur® | Bremen | arbeitnow |
-| 5 | Mediengestalter:in Digital & Print (m/w/d) | Lock4Safe Marketing | Kleve | arbeitnow |
-| 6 | Senior Accountant / Bilanzbuchhalter (m/w/d) | PRIME HR Agentur® | Augsburg | arbeitnow |
-| 7 | Wirtschaftsinformatiker / It-Projektmanager  - Vol | Steamulation Jobs | Lohr am Main | arbeitnow |
-| 8 | Werkstudent (m/w/d) Informatik / Wirtschaftsinform | R Raymon Bicycles GmbH | Schweinfurt | arbeitnow |
-| 9 | Senior Marketing Manager (m/w/d) - Berlin-Mitte | VisionIQ marketing & communica | Berlin | arbeitnow |
-| 10 | Projektkoordinator:in Werbetechnik \|Kundenberatung | Birmoser Werbetechnik GmbH | Tuntenhausen | arbeitnow |
-| 11 | Internship in Operations (all genders) | Helpling GmbH & Co. KG | Berlin | arbeitnow |
-| 12 | Pflichtpraktikant Business Development, HR & Offic | Digitalagenten | Berlin | arbeitnow |
-| 13 | SAP WM/EWM Consultant | Pertemps ERP | Cologne | arbeitnow |
-| 14 | Marketingkoordinator DACH | Vermeiren Deutschland GmbH | Willich | arbeitnow |
-| 15 | SAP SD Consultant | Pertemps ERP | Mannheim | arbeitnow |
-| 16 | Werkstudent:in Film & Festival Operations (Remote) | Miralot | Berlin | arbeitnow |
-| 17 | Change & OE Consultant: Führung & digitale Transfo | Chili and Change GmbH | Frankfurt am Main | arbeitnow |
-| 18 | KI-Manager (IHK) Weiterbildung \| 100 % Remote | DataSmart Point GmbH | Berlin | arbeitnow |
-| 19 | Senior CRM Manager (f/m/x) | exmox GmbH | Hamburg | arbeitnow |
-| 20 | Service Desk Spezialist - Onsite in Köln (m/w/d) | think about IT GmbH | Cologne | arbeitnow |
+| # | Title | Company | State | City | Area | Source |
+|---|-------|---------|-------|------|------|--------|
+| 1 | Software Engineer II | Flipkart | Karnataka | Bangalore | Whitefield | jsearch |
+| 2 | Marketing Manager | Tata Motors | Maharashtra | Mumbai | Dadar | arbeitnow |
+| 3 | Govt Bank PO | State Bank of India | Delhi | New Delhi | Connaught Place | jsearch |
+| 4 | Python Developer (Remote) | Zoho | Tamil Nadu | Chennai | — | remotive |
+| 5 | HR Business Partner | Infosys | Maharashtra | Pune | Hinjewadi | jsearch |
+| 6 | Data Scientist | Swiggy | Karnataka | Bangalore | Koramangala | jsearch |
+| 7 | Civil Engineer | L&T Construction | Telangana | Hyderabad | Gachibowli | arbeitnow |
 
 ---
 

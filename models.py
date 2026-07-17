@@ -16,6 +16,9 @@ class Job:
     city: str = ""
     state: str = ""
     area: str = ""
+    # Complete location EXACTLY as shown on the original job page. Preserved
+    # verbatim so nothing is ever replaced with just "India".
+    location_raw: str = ""
     salary: str = ""
     url: str = ""
     source: str = ""
@@ -47,6 +50,7 @@ class Job:
             city=str(data.get("city", "") or ""),
             state=str(data.get("state", "") or ""),
             area=str(data.get("area", "") or ""),
+            location_raw=str(data.get("location_raw", "") or ""),
             salary=str(data.get("salary", "") or ""),
             url=str(data.get("url", "") or ""),
             source=str(data.get("source", "") or ""),
@@ -75,6 +79,7 @@ class Job:
             "city": self.city,
             "state": self.state,
             "area": self.area,
+            "location_raw": self.location_raw,
             "salary": self.salary,
             "url": self.url,
             "source": self.source,

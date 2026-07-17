@@ -63,15 +63,19 @@ def _top_jobs_table(jobs: list[Job], limit: int = 20) -> str:
         A markdown-formatted table.
     """
     rows: list[str] = []
-    rows.append("| # | Title | Company | Location | Source |")
-    rows.append("|---|-------|---------|----------|--------|")
+    rows.append("| # | Title | Company | State | City | Area | Source |")
+    rows.append("|---|-------|---------|-------|------|------|--------|")
 
     for i, job in enumerate(jobs[:limit], start=1):
-        title: str = job.title[:50].replace("|", "\\|")
-        company: str = job.company[:30].replace("|", "\\|")
-        location: str = (job.city or "Remote").replace("|", "\\|")
+        title: str = job.title[:45].replace("|", "\\|")
+        company: str = job.company[:25].replace("|", "\\|")
+        state: str = (job.state or "—").replace("|", "\\|")
+        city: str = (job.city or "—").replace("|", "\\|")
+        area: str = (job.area or "—").replace("|", "\\|")
         source: str = job.source.replace("|", "\\|")
-        rows.append(f"| {i} | {title} | {company} | {location} | {source} |")
+        rows.append(
+            f"| {i} | {title} | {company} | {state} | {city} | {area} | {source} |"
+        )
 
     return "\n".join(rows)
 
@@ -127,17 +131,66 @@ def generate_readme(
 
 ```
 ┌─────────────┐     ┌──────────────┐     ┌───────────────┐
-│  Scrapers   │ --> │  Dedup +     │ --> │  Captions +   │
-│  (JSearch,  │     │  Categorize  │     │  README +     │
-│  Arbeitnow, │     │              │     │  HTML Board    │
-│  Remotive)  │     │              │     │                │
+│  Scrapers   │ --> │  India-filter│ --> │  Captions +   │
+│  (JSearch,  │     │  + Location  │     │  README +     │
+│  Arbeitnow, │     │  split       │     │  HTML Board    │
+│  Remotive)  │     │  + Dedup     │     │                │
 └─────────────┘     └──────────────┘     └───────────────┘
 ```
 
-1. **Scrape** – Pulls jobs from JSearch (RapidAPI), Arbeitnow, and Remotive.
-2. **Dedup** – SHA-256 fingerprinting ensures no duplicate posts.
-3. **Categorize** – Keyword matching assigns jobs to 14 categories.
-4. **Deliver** – Instagram captions, README, and an interactive HTML board.
+1. **Scrape** – Pulls jobs from JSearch (RapidAPI `country=in`), Arbeitnow, Remotive.
+2. **India filter** – Hard filter drops any job whose location is not Indian.
+3. **Location split** – Each location is split into **State / City / Area**; the
+   original string is preserved verbatim in `location_raw`. Locations are never
+   replaced with just "India".
+4. **Dedup** – SHA-256 fingerprinting (title + company + city + area).
+5. **Categorize** – Keyword matching assigns jobs to 14 categories.
+6. **Deliver** – Captions, README, and an interactive HTML board.
+
+---
+
+## 📍 Location Fields (per job)
+
+Every job in `data/jobs-today.json` carries these location fields:
+
+| Field | Description |
+|-------|-------------|
+| `state` | Indian State / UT (e.g. `Maharashtra`, `Delhi`, `Karnataka`) |
+| `city` | City (e.g. `Mumbai`, `New Delhi`, `Bangalore`) |
+| `area` | Locality / area, if available (e.g. `Dadar`, `Connaught Place`, `Whitefield`) |
+| `location_raw` | Complete location EXACTLY as on the original posting |
+
+Example JSON:
+```json
+{{
+  "state": "Maharashtra",
+  "city": "Mumbai",
+  "area": "Dadar",
+  "location_raw": "Dadar, Mumbai, Maharashtra"
+}}
+```
+
+---
+
+## 🎛️ Filtering
+
+The live HTML board (`docs/index.html`) supports filtering by:
+
+- **State** – all Indian states/UTs present in the data
+- **City** – all cities present
+- **Category** – 14 categories (IT, Government, Freshers, …)
+- **Company** – all companies present
+- **Source** – jsearch / arbeitnow / remotive
+- **Free-text search** – title, company, area, city, description
+
+---
+
+## 🃏 What each job card shows
+
+Every card on the board displays: **Company Logo**, **Company Name**,
+**Job Title**, **State**, **City**, **Area** (if available), **Salary** (if
+available), **Posted Date**, **Source**, and an **Apply** button that always
+opens the **original job page** (`url` from the source).
 
 ---
 
