@@ -1,29 +1,37 @@
-﻿{
-    "sources":  {
-                    "indeed":  {
-                                   "lastScrape":  null,
-                                   "totalScraped":  0
-                               },
-                    "naukri":  {
-                                   "lastScrape":  null,
-                                   "totalScraped":  0
-                               },
-                    "freejobalert":  {
-                                         "lastScrape":  null,
-                                         "totalScraped":  0
-                                     },
-                    "govtportals":  {
-                                        "lastScrape":  null,
-                                        "totalScraped":  0
-                                    },
-                    "linkedin":  {
-                                     "lastScrape":  null,
-                                     "totalScraped":  0
-                                 }
-                },
-    "fingerprints":  [
-
-                     ],
-    "lastRun":  null,
-    "totalCount":  0
+{
+  "fingerprints": [
+    "1cb30af35f82012357f37ea370a7f61a7546cbee61b2a9e743b3074b93e02eda",
+    "6e1d9ce58caaccbe8d73c69a108b97e3aa8e11429c4d13390cc207e6d1f9492f",
+    "58bc8e35aae5f7c2e14ee8024f2a78aa38e1437cef4bf31890263dd5bacdb460",
+    "87475e8de9f89ed7b4ba213d52b3a52792f659a6db28fdbeb60d65afa81da098",
+    "a8ae909842948cd1b984c352c688c3724e8929fa3880a206fbe3bc41e6de86fe",
+    "d80664c8aa89adf6872786b10d9d347be716e4572603a577f3fb5ba2451df1b9",
+    "b5ab62ccfd9dfae11790c8ffe41d8e44643093643002b8d8fe3cd8d2f4934d1b",
+    "0f7b4179a13cdf8a751f84b90f351ae6b058e0bb362606e89453ca1e1643f4cd",
+    "bc25a72ce859da632e0fce868ace40d59416189aeaf8c91378732ac60b03ae61",
+    "70961b803fece94976748d84001a3a306986705278c62e9722b8f1612e7a5a6f",
+    "2a0b2374faaf36788ae673a20809def435c1964aad7302080e91376393877547",
+    "a3da8f94a65c5e7fdcc58b572c234e5e083d64b64316950db66ce92fe927c85f",
+    "0dffb87ec55ff338dae198487e7fd310607ebd443b9b62f5003a01cb7829b89b",
+    "ed6ac5aae0c39b4a7aed6030778194689f7b96f36f24604b3b8b5c653261a32e",
+    "95152e971043a4e4a25d191f9a44bbedae0116d2885d8e15ed3f83aa8c22990c",
+    "c52360be09c25780d1992a6fdf35c04ae04a17189de77dfac4510814c147eccc",
+    "e1dc40ae02c9a1329c294644e93d4da395c11a7f17487e73156b099e6e0f9d0c",
+    "b51d889b5ae983f3d296669da0b904e50554f0d779b93d84f915a187cb9086c8",
+    "a02381a8d659b35155f1841854377b318cbd2593dd10296e6be23c6db14f3805",
+    "46bbaba55dd08d54dfbab89b291ff5f56bf9c89d55a5cee9f4fa400ea73bb8d0",
+    "be996e869d386e4ba2d92bc83b716b70a2d930165772e54795bac384b7fd4f32",
+    "14c22667335aa22b9ca8fff757c25a942d22d16decf55d3dbf1f9fcfef7322e7",
+    "c919af0e9a0e9f5bb0b3b8e254c478abd92194b8fc7053549aac58ffa3891004",
+    "269fd533f4ec293a20b947aba555e662107229db56742e706b7ccf3844f7a60e",
+    "0b873e6830b6c589ab0432ac7cc595533227cfe7fe64b3ea6c5237dab0fbc5d8",
+    "91cdb5cc62945d583e8139ca221520e5d0b9cdbaf96f22ceaac8b882014ea11a",
+    "91bc9f1c9f97ddf3bf84b5183880eea6cd7b7a45bf58893c10c5fd5cf7c74ea4",
+    "87d606c60a7dcd276e60492b21b8558b85772300d98dfe28a5420b97e43be6f5",
+    "bea4a98dca8f35bf5a7cd27c04033d64e3c575ca428f7ae74fd10cd14d2df4a9",
+    "ea0f71855418c6c730fbe0a2657dc2175ee9949e1f8de1077edf1a9ea39082d8"
+  ],
+  "lastRun": "2026-07-17T07:36:21.967716+00:00",
+  "totalCount": 30,
+  "sources": {}
 }

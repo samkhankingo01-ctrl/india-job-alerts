@@ -1,28 +1,38 @@
-# 🇮🇳 India Job Alerts – Instagram Ready
+<p align="center">
+  <img src="https://img.shields.io/badge/Jobs_Updated-2026-07-17-brightgreen?style=for-the-badge" alt="Jobs Updated" />
+  <img src="https://img.shields.io/badge/GitHub_Actions-Automated-blue?style=for-the-badge&logo=githubactions" alt="GitHub Actions" />
+  <img src="https://img.shields.io/badge/Python-3.12%2B-blue?style=for-the-badge&logo=python" alt="Python" />
+</p>
 
-> Automated job alerts from across India — scraped, deduplicated, and formatted for Instagram posting every 6 hours.
+# 🇮🇳 India Job Alerts
 
-[![Jobs Updated](https://img.shields.io/badge/Jobs%20Updated-Daily-brightgreen)](https://github.com/khanzindagi/india-job-alerts/actions)
-[![GitHub Actions](https://github.com/khanzindagi/india-job-alerts/actions/workflows/update-jobs.yml/badge.svg)](https://github.com/khanzindagi/india-job-alerts/actions)
-[![Python 3.12+](https://img.shields.io/badge/Python-3.12+-blue.svg)](https://www.python.org/)
-[![MIT License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+> 🔔 **Fully automated** job aggregator for India — scraped every 6 hours, deduplicated, categorized, and formatted into Instagram-ready captions.
 
 ---
 
-## 🔄 How It Works
+## 📖 How It Works
 
 ```
-🌐 Search Sources  →  🧹 Deduplicate  →  🏷️ Categorize  →  📝 Captions  →  📊 Update README
-     4 portals            SHA-256            25+ cats        Instagram        Live stats
+┌─────────────┐     ┌───────────┐     ┌──────────────┐
+│  Scrapers   │────▶│  Dedup    │────▶│  Categorizer │
+│  5 sources  │     │ SHA-256   │     │ 14 categories│
+└─────────────┘     └───────────┘     └──────────────┘
+                                            │
+                    ┌───────────────────────┘
+                    ▼
+┌──────────────────────────────────────────────────────┐
+│                    Outputs                           │
+│  • captions-YYYY-MM-DD.md (Instagram-ready)          │
+│  • posted-jobs.json (dedup ledger)                   │
+│  • README.md (live stats)                            │
+└──────────────────────────────────────────────────────┘
 ```
 
-| Step | Description |
-|------|-------------|
-| **1. Search** | Scrapes Naukri, Indeed, LinkedIn, FreeJobAlert + Govt portals every 6 hours |
-| **2. Dedup** | SHA-256 fingerprint on (title + company + location) – no repeats |
-| **3. Categorize** | Keyword-based classification into 25+ categories |
-| **4. Format** | Clean emoji-rich Instagram captions with hashtags |
-| **5. Commit** | Auto-commits & pushes new data back to GitHub |
+1. **Scrape** — Pulls the latest job postings from Naukri, Indeed, LinkedIn, FreeJobAlert, and SarkariResult.
+2. **Deduplicate** — SHA-256 fingerprints on `(title + company + location)` ensure no repeats.
+3. **Categorize** — Keyword matching assigns every job to one of 14 categories.
+4. **Format** — Generates Instagram-ready markdown captions with emojis and hashtags.
+5. **Commit** — GitHub Actions auto-commits new jobs every 6 hours.
 
 ---
 
@@ -30,201 +40,198 @@
 
 ```
 india-job-alerts/
-├── .github/
-│   └── workflows/
-│       └── update-jobs.yml           # GitHub Actions: every 6 hours
+├── .github/workflows/
+│   └── update-jobs.yml          # GitHub Actions — runs every 6 hours
+├── data/
+│   └── posted-jobs.json         # Deduplication ledger
+├── output/
+│   └── captions-YYYY-MM-DD.md   # Daily caption output
 ├── scripts/
-│   ├── scraper.py                    # Multi-source web scraper
-│   ├── dedup.py                      # SHA-256 deduplication engine
-│   ├── categorizer.py                # Keyword-based job classifier
-│   ├── format_captions.py            # Instagram caption generator
-│   └── generate_readme_jobs.py       # Auto-updates README with stats
+│   ├── scraper.py               # Multi-source job scraper
+│   ├── dedup.py                 # Fingerprint-based dedup
+│   ├── categorizer.py           # Keyword category classifier
+│   ├── format_captions.py       # Instagram caption generator
+│   └── generate_readme_jobs.py  # README stats updater
 ├── tests/
-│   ├── __init__.py
 │   ├── test_scraper.py
 │   ├── test_dedup.py
 │   ├── test_categorizer.py
 │   └── test_format_captions.py
-├── data/
-│   ├── jobs-today.json               # Today's scraped jobs (JSON)
-│   └── posted-jobs.json              # Dedup fingerprint ledger
-├── output/
-│   └── captions-YYYY-MM-DD.md        # Instagram-ready post draft
-├── config.py                         # Central configuration (dataclass)
-├── models.py                         # Job, ScraperResult, CaptionBlock
-├── main.py                           # CLI orchestrator
-├── pyproject.toml                    # Project metadata + pytest config
-├── requirements.txt                  # Python dependencies
-├── .env.example                      # Environment variable template
-├── .gitignore
-├── LICENSE                           # MIT
+├── config.py                    # Central configuration
+├── models.py                    # Data models
+├── main.py                      # Orchestrator CLI
+├── requirements.txt
+├── pyproject.toml
 └── README.md
 ```
 
 ---
 
-## 🏷️ Categories Covered
+## 📊 Job Categories
 
-| Category | Examples |
-|----------|----------|
-| 💻 **IT / Tech** | Software Engineer, Full Stack, DevOps, Cloud, AI/ML |
-| 🏛️ **Government** | UPSC, SSC, Railways, Defence, State & Central Govt |
-| 🚀 **Startup** | Product, Growth, UI/UX, Backend at funded startups |
-| 🎓 **Freshers** | Entry-level, Internships, Trainee, 0-3 years |
-| 🏠 **Remote / WFH** | Remote software, remote marketing, remote HR |
-| 🏦 **Banking / Finance** | Banking, Credit, Insurance, Finance Analyst |
-| ⚙️ **Engineering** | Mechanical, Civil, Electrical, Manufacturing |
-| 🏥 **Healthcare** | Nurse, Doctor, Medical Officer, Pharmacist |
-| 📈 **Sales / Marketing** | BDM, Sales Executive, Digital Marketing |
-| 📚 **Education / Research** | Professor, JRF, Research Fellow, Teaching |
-| 👥 **HR / Recruitment** | HR, Talent Acquisition, Recruitment Coordinator |
-| 🏭 **PSU** | HPCL, BHEL, NTPC, SAIL, Port Authority |
-| ⏰ **Part Time / Student** | Content Writing, Tutoring, Data Entry, Internships |
-| 🛡️ **Defence** | Army, Navy, Air Force, Paramilitary |
+| Source | Type | URL |
+|--------|------|-----|
+| Naukri | Private Sector | [https://www.naukri.com](https://www.naukri.com) |
+| Indeed India | Private Sector | [https://in.indeed.com](https://in.indeed.com) |
+| LinkedIn | Private Sector | [https://www.linkedin.com](https://www.linkedin.com) |
+| FreeJobAlert | Government + Private | [https://www.freejobalert.com](https://www.freejobalert.com) |
+| SarkariResult | Government | [https://www.sarkariresult.com](https://www.sarkariresult.com) |
 
 ---
 
 ## 🚀 Quick Start
 
 ### Prerequisites
+
 - Python 3.12+
-- Git
+- pip
 
 ### Installation
+
 ```bash
-git clone https://github.com/khanzindagi/india-job-alerts.git
+# Clone the repository
+git clone https://github.com/your-username/india-job-alerts.git
 cd india-job-alerts
+
+# Install dependencies
 pip install -r requirements.txt
-```
 
-### Run Locally
-```bash
-# Full pipeline (scrape → dedup → format → readme)
+# Run a full update
 python main.py --run-all
-
-# Scrape only
-python main.py --scrape-only
-
-# Generate captions from existing data
-python main.py --format-only
-
-# Update README stats only
-python main.py --readme-only
-
-# Run tests
-pytest tests/ -v
 ```
 
----
+### CLI Options
 
-## ⚙️ Automation
-
-The GitHub Actions workflow (`update-jobs.yml`) runs **every 6 hours** (`0 */6 * * *`) and can also be triggered manually via the `workflow_dispatch` button in the Actions tab.
-
-### What the workflow does:
-1. Checks out the repo
-2. Sets up Python 3.12
-3. Installs dependencies
-4. Runs `python main.py --run-all`
-5. Commits and pushes new data
+| Flag | Description |
+|------|-------------|
+| `--run-all` | Scrape → Dedup → Categorize → Format → Update README |
+| `--scrape-only` | Run only the scrapers |
+| `--format-only` | Generate captions from existing data |
+| `--readme-only` | Update README stats only |
 
 ---
 
-## 📝 Caption Format
+## 🤖 Automation
 
-Every Instagram post follows this clean, emoji-rich format:
+This repository uses **GitHub Actions** to run the full pipeline every **6 hours**.
+
+```yaml
+schedule:
+  - cron: '0 */6 * * *'
+```
+
+You can also trigger it manually from the Actions tab using `workflow_dispatch`.
+
+### Environment Variables (optional)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `MAX_JOBS_PER_SOURCE` | `50` | Max jobs to scrape per source |
+| `DEDUP_DAYS` | `7` | Days to retain fingerprints |
+| `GITHUB_TOKEN` | – | For GitHub API calls (auto-set in Actions) |
+
+Copy `.env.example` to `.env` to override defaults locally.
+
+---
+
+## 📸 Caption Format
+
+Each job is rendered as:
 
 ```
 🚨 Hiring Now!
 
-🏢 Company: Microsoft
-💼 Role: Software Engineer
-📍 Location: Bengaluru, Karnataka
-💰 Salary: ₹15-30 LPA
-🔗 Apply: https://apply-link.com
+🏢 Company: TechCorp India
+💼 Role: Senior Software Engineer
+📍 Location: Bangalore, Karnataka
+💰 Salary: ₹18 LPA
+🔗 Apply: https://example.com/job/12345
 
-#jobs #indiajobs #hiring #itjobs #techjobs #softwareengineer
+#jobs #indiajobs #hiring #ittech #techjobs #softwarejobs
+---
 ```
 
-### Government Jobs get special treatment:
+**Government jobs** get a special header:
+
 ```
 🏛️ GOVERNMENT JOB ALERT!
 
-🏢 Organization: UPSC
-💼 Role: Drug Inspector (450 Posts)
-📍 Location: All India
-💰 Pay Scale: Level-7 (₹44,900 – ₹1,42,400)
-📅 Last Date: 2026-08-15
-🔗 Apply: https://upsc.gov.in
+🏢 Company: Government of India
+💼 Role: SSC CGL 2025
+📍 Location: India
+💰 Salary: Not disclosed
+🔗 Apply: https://ssc.nic.in
+📅 Last Date: 31 Aug 2025
 
-#govtjobs #sarkarijobs #government #upsc #indiajobs
+#jobs #indiajobs #hiring #governmentjobs #sarkarinaukri
+---
 ```
 
 ---
 
-## 📊 Live Stats
+## 📈 Live Stats
 
-<!-- JOBS_STATS_START -->
+> Last updated: **17 Jul 2026, 07:36 UTC**
 
-> **Last Updated:** 2026-07-17
-> **Total Jobs Today:** 131
+| Metric | Value |
+|--------|-------|
+| 📦 Total Unique Jobs | **30** |
+| 📂 Categories Covered | **14** |
+| 🔍 Sources Monitored | **5** |
+| 🆕 Latest Captions | `output/captions-2026-07-17.md` |
 
-### By Category
+### 🔥 Top 10 Latest Jobs
 
-| Category | Jobs |
-|----------|------|
-| IT | 21 |
-| Government | 20+ |
-| Healthcare | 12 |
-| Education/Research | 11 |
-| Finance | 9 |
-| Startup | 9 |
-| Engineering | 8 |
-| Sales/Marketing | 7 |
+| 💼 Role | 🏢 Company | 📂 Category |
+|----------|------------|-------------|
+| CHANGE THE WORLD | VDS INNOVATION | Other |
+| Anything | Nash | Other |
+| Register Now | CREW Resources Worldwide | Other |
+| QA | VDS INNOVATION | IT |
+| Tuple | Tuple | Other |
+| Assistant - ARFF | Adani Airport Holdings Ltd | Other |
+| Talent Sourcer | Red Sky | HR |
+| Members Don't Join for Dollar Value | Steward | Other |
+| Quality Control | Esteem | Other |
+| 1838 | 4BUILD Group | Other |
 
-<!-- JOBS_STATS_END -->
+### 📊 By Category
+
+| 📂 Category | 📦 Count |
+|-------------|-----------|
+| Other | 19 |
+| IT | 6 |
+| Marketing | 2 |
+| HR | 1 |
+| Banking | 1 |
+| Freshers | 1 |
+
 
 ---
 
 ## 🤝 Contributing
 
-1. Fork the repo
-2. Create a feature branch (`git checkout -b feature/new-source`)
-3. Add your scraper function in `scripts/scraper.py`
-4. Register it in the `scraper_modules` list
-5. Submit a PR
+Contributions are welcome! Feel free to:
 
-### Adding a New Job Source
+- **Add a new scraper** — implement `scrape_<source>()` in `scripts/scraper.py`
+- **Add categories** — extend `CATEGORY_MAP` in `config.py`
+- **Improve captions** — tweak `build_caption()` in `scripts/format_captions.py`
+- **Fix bugs** — open an issue or PR
 
-```python
-# In scripts/scraper.py
-def scrape_newsource(config: AppConfig) -> list[Job]:
-    """Scrape jobs from New Job Source."""
-    # Your scraping logic here
-    return jobs
+Please ensure all tests pass before submitting:
 
-# Register in main.py:
-from scripts.scraper import scrape_newsource
+```bash
+pytest tests/ -v
 ```
 
 ---
 
-## 📋 Requirements
+## 📜 License
 
-- `requests` – HTTP requests with retry/backoff
-- `beautifulsoup4` – HTML parsing
-- `lxml` – Fast XML/HTML parser
-- `pandas` – Data manipulation (optional, for analytics)
-
----
-
-## 📄 License
-
-MIT — Free to use, modify, and share. See [LICENSE](LICENSE).
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
 
 ---
 
 <p align="center">
-  <b>🇮🇳 Made for India's Job Seekers</b><br>
-  <sub>Helping millions find their dream job, one post at a time.</sub>
+  <sub>Built with ❤️ for Indian job seekers | Auto-updated every 6 hours</sub>
 </p>
