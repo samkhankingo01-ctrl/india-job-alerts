@@ -9,9 +9,9 @@
 
 ## 📊 Live Stats
 
-- **Jobs in this update:** 7
-- **Total unique jobs tracked:** 7
-- **Last updated:** 2026-07-17 11:40:06 UTC
+- **Jobs in this update:** 1
+- **Total unique jobs tracked:** 8
+- **Last updated:** 2026-07-24 17:14:30 UTC
 - **Live board:** [jobsboard.samkhan.in](https://samkhankingo01-ctrl.github.io/jobs-repo/) (→ `docs/index.html`)
 
 ---
@@ -184,11 +184,7 @@ Each job produces an Instagram-ready caption block:
 
 | Category | Count | % |
 |----------|-------|---|
-| IT | 3 | 42.9% |
-| Marketing | 1 | 14.3% |
-| Government | 1 | 14.3% |
-| HR | 1 | 14.3% |
-| Engineering | 1 | 14.3% |
+| IT | 1 | 100.0% |
 
 ---
 
@@ -196,13 +192,7 @@ Each job produces an Instagram-ready caption block:
 
 | # | Title | Company | State | City | Area | Source |
 |---|-------|---------|-------|------|------|--------|
-| 1 | Software Engineer II | Flipkart | Karnataka | Bangalore | Whitefield | jsearch |
-| 2 | Marketing Manager | Tata Motors | Maharashtra | Mumbai | Dadar | arbeitnow |
-| 3 | Govt Bank PO | State Bank of India | Delhi | New Delhi | Connaught Place | jsearch |
-| 4 | Python Developer (Remote) | Zoho | Tamil Nadu | Chennai | — | remotive |
-| 5 | HR Business Partner | Infosys | Maharashtra | Pune | Hinjewadi | jsearch |
-| 6 | Data Scientist | Swiggy | Karnataka | Bangalore | Koramangala | jsearch |
-| 7 | Civil Engineer | L&T Construction | Telangana | Hyderabad | Gachibowli | arbeitnow |
+| 1 | Softwaretrainer (m/w/d) | INNOSYSTEC GmbH | Tamil Nadu | Salem | — | arbeitnow |
 
 ---
 
