@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🇮🇳 India Jobs Board</title>
+<style>
+:root {
+  --bg:#f8fafc; --surface:#ffffff; --surface-hover:#f1f5f9;
+  --text:#0f172a; --text-secondary:#475569; --text-muted:#94a3b8;
+  --border:#e2e8f0; --border-light:#f1f5f9;
+  --accent:#3b82f6; --accent-hover:#2563eb; --accent-light:#dbeafe;
+  --shadow-sm:0 1px 2px rgba(0,0,0,.05);
+  --shadow-md:0 4px 6px -1px rgba(0,0,0,.1),0 2px 4px -2px rgba(0,0,0,.1);
+  --radius:12px; --radius-sm:8px; --transition:.2s ease;
+}
+[data-theme="dark"] {
+  --bg:#0f172a; --surface:#1e293b; --surface-hover:#334155;
+  --text:#f1f5f9; --text-secondary:#cbd5e1; --text-muted:#64748b;
+  --border:#334155; --border-light:#1e293b;
+  --accent:#60a5fa; --accent-hover:#93bbfd; --accent-light:#1e3a5f;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+  background:var(--bg); color:var(--text); line-height:1.6;
+  min-height:100vh; transition:background var(--transition),color var(--transition);
+}
+.header{
+  background:var(--surface); border-bottom:1px solid var(--border);
+  padding:1.25rem 2rem; position:sticky; top:0; z-index:100;
+  box-shadow:var(--shadow-sm); backdrop-filter:blur(12px);
+  transition:background var(--transition),border var(--transition);
+}
+.header-inner{max-width:1400px;margin:0 auto;display:flex;align-items:center;
+  justify-content:space-between;gap:1rem;flex-wrap:wrap;}
+.header-left{display:flex;align-items:center;gap:.75rem;}
+.header-logo{font-size:1.75rem;line-height:1;}
+.header-title{font-size:1.35rem;font-weight:700;letter-spacing:-.02em;}
+.header-subtitle{font-size:.8rem;color:var(--text-muted);}
+.header-actions{display:flex;align-items:center;gap:.75rem;}
+.theme-toggle{
+  background:var(--surface-hover);border:1px solid var(--border);
+  border-radius:50%;width:40px;height:40px;display:flex;
+  align-items:center;justify-content:center;cursor:pointer;
+  color:var(--text-secondary);transition:all var(--transition);
+}
+.theme-toggle:hover{background:var(--accent-light);color:var(--accent);border-color:var(--accent);}
+.job-count{
+  background:var(--accent);color:#fff;padding:.35rem .9rem;
+  border-radius:100px;font-size:.85rem;font-weight:600;white-space:nowrap;
+}
+.updated-badge{font-size:.75rem;color:var(--text-muted);white-space:nowrap;}
+.filter-bar{
+  max-width:1400px;margin:1.5rem auto 1rem;padding:0 2rem;
+  display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;
+}
+.search-wrapper{position:relative;flex:1;min-width:220px;}
+.search-wrapper svg{position:absolute;left:12px;top:50%;
+  transform:translateY(-50%);color:var(--text-muted);pointer-events:none;}
+.search-input{
+  width:100%;padding:.65rem 1rem .65rem 2.5rem;border:1px solid var(--border);
+  border-radius:var(--radius-sm);background:var(--surface);color:var(--text);
+  font-size:.9rem;transition:all var(--transition);outline:none;
+}
+.search-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-light);}
+.filter-select{
+  padding:.65rem 2rem .65rem .75rem;border:1px solid var(--border);
+  border-radius:var(--radius-sm);background:var(--surface);color:var(--text);
+  font-size:.85rem;cursor:pointer;appearance:none;-webkit-appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 10px center;
+  transition:all var(--transition);min-width:140px;
+}
+.filter-select:focus{border-color:var(--accent);outline:none;}
+.reset-btn{
+  padding:.65rem 1rem;border:1px solid var(--border);border-radius:var(--radius-sm);
+  background:var(--surface);color:var(--text-secondary);font-size:.85rem;
+  cursor:pointer;display:flex;align-items:center;gap:.4rem;
+  transition:all var(--transition);white-space:nowrap;
+}
+.reset-btn:hover{background:var(--surface-hover);border-color:var(--accent);color:var(--accent);}
+.results-count{font-size:.85rem;color:var(--text-muted);margin-left:auto;white-space:nowrap;}
+.card-grid{
+  max-width:1400px;margin:0 auto;padding:0 2rem 3rem;
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:1.25rem;
+}
+.job-card{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  padding:1.25rem;transition:all var(--transition);display:flex;flex-direction:column;
+  gap:.6rem;box-shadow:var(--shadow-sm);position:relative;overflow:hidden;
+}
+.job-card::before{
+  content:'';position:absolute;top:0;left:0;width:100%;height:3px;
+  background:var(--card-accent,var(--accent));opacity:0;transition:opacity var(--transition);
+}
+.job-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);border-color:var(--accent);}
+.job-card:hover::before{opacity:1;}
+.card-header{display:flex;align-items:flex-start;gap:.75rem;}
+.company-logo{
+  width:48px;height:48px;border-radius:var(--radius-sm);object-fit:contain;
+  background:var(--surface-hover);border:1px solid var(--border-light);
+  flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  font-size:1.25rem;font-weight:700;color:var(--accent);overflow:hidden;
+}
+.company-logo-img{width:100%;height:100%;object-fit:contain;}
+.card-title{
+  font-size:1rem;font-weight:600;color:var(--text);line-height:1.35;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+}
+.card-company{font-size:.85rem;color:var(--text-secondary);margin-top:.15rem;}
+.card-meta{display:flex;flex-wrap:wrap;gap:.4rem .9rem;align-items:center;
+  font-size:.8rem;color:var(--text-muted);}
+.meta-item{display:inline-flex;align-items:center;gap:.3rem;}
+.meta-item strong{color:var(--text-secondary);font-weight:600;}
+.card-tags{display:flex;flex-wrap:wrap;gap:.4rem;}
+.tag{
+  font-size:.7rem;font-weight:600;padding:.2rem .55rem;border-radius:100px;
+  text-transform:uppercase;letter-spacing:.03em;
+}
+.tag-category{background:var(--accent-light);color:var(--accent);}
+.tag-source{background:var(--surface-hover);color:var(--text-secondary);border:1px solid var(--border);}
+.tag-remote{background:#dcfce7;color:#16a34a;}
+[data-theme="dark"] .tag-remote{background:#052e16;color:#4ade80;}
+.tag-govt{background:#fff7ed;color:#ea580c;}
+[data-theme="dark"] .tag-govt{background:#431407;color:#fb923c;}
+.card-description{
+  font-size:.8rem;color:var(--text-muted);display:-webkit-box;
+  -webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.5;
+}
+.card-footer{margin-top:auto;display:flex;align-items:center;
+  justify-content:space-between;gap:.5rem;}
+.apply-btn{
+  display:inline-flex;align-items:center;gap:.4rem;padding:.5rem 1rem;
+  background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);
+  font-size:.85rem;font-weight:600;text-decoration:none;cursor:pointer;
+  transition:all var(--transition);white-space:nowrap;
+}
+.apply-btn:hover{background:var(--accent-hover);transform:scale(1.02);}
+.empty-state{grid-column:1/-1;text-align:center;padding:4rem 2rem;color:var(--text-muted);}
+.empty-state-icon{font-size:3rem;margin-bottom:1rem;}
+.footer{text-align:center;padding:2rem;color:var(--text-muted);
+  font-size:.8rem;border-top:1px solid var(--border);}
+.footer a{color:var(--accent);text-decoration:none;}
+.footer a:hover{text-decoration:underline;}
+@media (max-width:768px){
+  .header{padding:1rem;}
+  .header-title{font-size:1.1rem;}
+  .card-grid{grid-template-columns:1fr;padding:0 1rem 2rem;}
+  .filter-bar{padding:0 1rem;flex-direction:column;}
+  .search-wrapper{width:100%;}
+  .filter-select{width:100%;}
+  .reset-btn{width:100%;justify-content:center;}
+  .results-count{margin-left:0;text-align:center;width:100%;}
+  .updated-badge{display:none;}
+}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-inner">
+    <div class="header-left">
+      <span class="header-logo">🇮🇳</span>
+      <div>
+        <h1 class="header-title">India Jobs Board</h1>
+        <p class="header-subtitle">Curated India job listings &mdash; exact State / City / Area</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <span class="updated-badge">Updated: 2026-07-17 11:40:06 UTC</span>
+      <span class="job-count" id="jobCount">7 jobs</span>
+      <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme" title="Toggle dark mode">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<div class="filter-bar">
+  <div class="search-wrapper">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <input type="text" class="search-input" id="searchInput"
+           placeholder="Search by title, company, area, city...">
+  </div>
+  <select class="filter-select" id="stateFilter"><option value="">All States</option>
+<option value="Delhi">Delhi (1)</option>
+<option value="Karnataka">Karnataka (2)</option>
+<option value="Maharashtra">Maharashtra (2)</option>
+<option value="Tamil Nadu">Tamil Nadu (1)</option>
+<option value="Telangana">Telangana (1)</option></select>
+  <select class="filter-select" id="cityFilter"><option value="">All Cities</option>
+<option value="Bangalore">Bangalore (2)</option>
+<option value="Chennai">Chennai (1)</option>
+<option value="Hyderabad">Hyderabad (1)</option>
+<option value="Mumbai">Mumbai (1)</option>
+<option value="New Delhi">New Delhi (1)</option>
+<option value="Pune">Pune (1)</option></select>
+  <select class="filter-select" id="categoryFilter"><option value="">All Categories</option>
+<option value="Engineering">Engineering (1)</option>
+<option value="Government">Government (1)</option>
+<option value="HR">HR (1)</option>
+<option value="IT">IT (3)</option>
+<option value="Marketing">Marketing (1)</option></select>
+  <select class="filter-select" id="companyFilter"><option value="">All Companies</option>
+<option value="Flipkart">Flipkart (1)</option>
+<option value="Infosys">Infosys (1)</option>
+<option value="L&amp;T Construction">L&amp;T Construction (1)</option>
+<option value="State Bank of India">State Bank of India (1)</option>
+<option value="Swiggy">Swiggy (1)</option>
+<option value="Tata Motors">Tata Motors (1)</option>
+<option value="Zoho">Zoho (1)</option></select>
+  <select class="filter-select" id="sourceFilter"><option value="">All Sources</option>
+<option value="arbeitnow">arbeitnow (2)</option>
+<option value="jsearch">jsearch (4)</option>
+<option value="remotive">remotive (1)</option></select>
+  <button class="reset-btn" id="resetBtn" title="Reset all filters">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Reset
+  </button>
+  <span class="results-count" id="resultsCount">Showing 7 of 7</span>
+</div>
+
+<main class="card-grid" id="cardGrid"></main>
+
+<footer class="footer">
+  <p>🇮🇳 India Jobs Board &mdash; Auto-updated every 6 hours &mdash;
+    Powered by <a href="https://github.com/samkhankingo01-ctrl/jobs-repo" target="_blank" rel="noopener">GitHub Actions</a></p>
+</footer>
+
+<script type="application/json" id="jobsData">[{"logo": "https://logo.clearbit.com/flipkart.com", "title": "Software Engineer II", "company": "Flipkart", "state": "Karnataka", "city": "Bangalore", "area": "Whitefield", "locationRaw": "Whitefield, Bangalore, Karnataka", "salary": "15-25 LPA", "postedDate": "2026-07-16", "url": "https://www.linkedin.com/jobs/view/flipkart-swe-1", "source": "jsearch", "category": "IT", "empType": "FULLTIME", "remote": false, "govt": false, "description": ""}, {"logo": "", "title": "Marketing Manager", "company": "Tata Motors", "state": "Maharashtra", "city": "Mumbai", "area": "Dadar", "locationRaw": "Dadar, Mumbai, Maharashtra", "salary": "12-18 LPA", "postedDate": "2026-07-15", "url": "https://www.arbeitnow.com/jobs/tata-mm", "source": "arbeitnow", "category": "Marketing", "empType": "Full-time", "remote": false, "govt": false, "description": ""}, {"logo": "https://logo.clearbit.com/sbi.co.in", "title": "Govt Bank PO", "company": "State Bank of India", "state": "Delhi", "city": "New Delhi", "area": "Connaught Place", "locationRaw": "Connaught Place, New Delhi, Delhi", "salary": "", "postedDate": "2026-07-17", "url": "https://sbi.co.in/careers/po-2026", "source": "jsearch", "category": "Government", "empType": "Full-time", "remote": false, "govt": true, "description": ""}, {"logo": "https://logo.clearbit.com/zoho.com", "title": "Python Developer (Remote)", "company": "Zoho", "state": "Tamil Nadu", "city": "Chennai", "area": "", "locationRaw": "Chennai, Tamil Nadu", "salary": "8-14 LPA", "postedDate": "2026-07-14", "url": "https://remotive.com/remote-jobs/zoho-py", "source": "remotive", "category": "IT", "empType": "Full-time", "remote": true, "govt": false, "description": ""}, {"logo": "https://logo.clearbit.com/infosys.com", "title": "HR Business Partner", "company": "Infosys", "state": "Maharashtra", "city": "Pune", "area": "Hinjewadi", "locationRaw": "Hinjewadi, Pune, Maharashtra", "salary": "10-15 LPA", "postedDate": "2026-07-13", "url": "https://www.linkedin.com/jobs/view/infosys-hrbp", "source": "jsearch", "category": "HR", "empType": "Full-time", "remote": false, "govt": false, "description": ""}, {"logo": "https://logo.clearbit.com/swiggy.com", "title": "Data Scientist", "company": "Swiggy", "state": "Karnataka", "city": "Bangalore", "area": "Koramangala", "locationRaw": "Koramangala, Bangalore, Karnataka", "salary": "20-30 LPA", "postedDate": "2026-07-12", "url": "https://www.linkedin.com/jobs/view/swiggy-ds", "source": "jsearch", "category": "IT", "empType": "Full-time", "remote": false, "govt": false, "description": ""}, {"logo": "", "title": "Civil Engineer", "company": "L&T Construction", "state": "Telangana", "city": "Hyderabad", "area": "Gachibowli", "locationRaw": "Gachibowli, Hyderabad, Telangana", "salary": "6-10 LPA", "postedDate": "2026-07-11", "url": "https://www.arbeitnow.com/jobs/lt-civil", "source": "arbeitnow", "category": "Engineering", "empType": "Full-time", "remote": false, "govt": false, "description": ""}]</script>
+<script>
+(function() {
+"use strict";
+
+var ALL_JOBS = JSON.parse(document.getElementById('jobsData').textContent);
+
+var grid = document.getElementById('cardGrid');
+var searchInput = document.getElementById('searchInput');
+var stateFilter = document.getElementById('stateFilter');
+var cityFilter = document.getElementById('cityFilter');
+var categoryFilter = document.getElementById('categoryFilter');
+var companyFilter = document.getElementById('companyFilter');
+var sourceFilter = document.getElementById('sourceFilter');
+var resetBtn = document.getElementById('resetBtn');
+var resultsCount = document.getElementById('resultsCount');
+var jobCount = document.getElementById('jobCount');
+var themeToggle = document.getElementById('themeToggle');
+
+var jobs = ALL_JOBS;
+
+// ===== Theme =====
+var SUN = <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>;
+var MOON = <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>;
+function setTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem('jobs-board-theme', theme);
+  themeToggle.innerHTML = theme === 'dark' ? MOON : SUN;
+}
+setTheme(localStorage.getItem('jobs-board-theme') || 'light');
+themeToggle.addEventListener('click', function() {
+  var cur = document.documentElement.getAttribute('data-theme');
+  setTheme(cur === 'dark' ? 'light' : 'dark');
+});
+
+// ===== Icons =====
+var ICON = {
+  pin: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>,
+  money: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>,
+  cal: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
+  brief: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>,
+  link: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+};
+
+function esc(s) {
+  s = s || '';
+  return String(s).replace(/[&<>"']/g, function(c) {
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
+
+function companyInitials(company) {
+  if (!company) return '?';
+  var parts = company.trim().split(/\s+/);
+  return (parts[0] ? parts[0][0] : '') + (parts[1] ? parts[1][0] : '');
+}
+
+function catColor(cat) {
+  var m = {IT:'#3b82f6',Government:'#f97316',Freshers:'#22c55e',Remote:'#8b5cf6',
+    Banking:'#eab308',Engineering:'#06b6d4',Healthcare:'#ef4444',Sales:'#ec4899',
+    Marketing:'#f43f5e',Startup:'#14b8a6',PSU:'#64748b','Part Time':'#a855f7',
+    Education:'#0ea5e9',HR:'#d946ef',Other:'#6b7280'};
+  return m[cat] || '#6b7280';
+}
+function srcColor(src) {
+  var m = {jsearch:'#3b82f6',arbeitnow:'#22c55e',remotive:'#8b5cf6'};
+  return m[src] || '#6b7280';
+}
+
+function renderCards() {
+  if (jobs.length === 0) {
+    grid.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🔍</div>'
+      + '<h3 style="font-size:1.2rem;color:var(--text-secondary);margin-bottom:.5rem;">'
+      + 'No jobs match your filters</h3>'
+      + '<p>Try adjusting your search or filters</p></div>';
+    resultsCount.textContent = '0 results';
+    jobCount.textContent = '0 jobs';
+    return;
+  }
+
+  grid.innerHTML = jobs.map(function(job) {
+    var initials = companyInitials(job.company);
+    var showLogo = job.logo && job.logo.length > 5;
+    var cardStyle = '--card-accent:' + catColor(job.category);
+
+    // Tags
+    var tags = '<span class="tag tag-category" style="background:'
+      + catColor(job.category) + '1a;color:' + catColor(job.category) + '">'
+      + esc(job.category) + '</span>';
+    tags += '<span class="tag tag-source" style="border-color:'
+      + srcColor(job.source) + ';color:' + srcColor(job.source) + '">'
+      + esc(job.source) + '</span>';
+    if (job.remote) tags += '<span class="tag tag-remote">Remote</span>';
+    if (job.govt) tags += '<span class="tag tag-govt">Govt</span>';
+
+    // Logo
+    var logoHtml = showLogo
+      ? '<img class="company-logo-img" src="' + esc(job.logo) + '" alt="'
+        + esc(job.company) + '" loading="lazy" onerror="this.parentElement.textContent=''
+        + esc(initials) + ''">'
+      : esc(initials);
+
+    // Location lines — preserve exact State / City / Area
+    var locLines = '';
+    var locParts = [];
+    if (job.area) locParts.push('<strong>Area:</strong> ' + esc(job.area));
+    if (job.city) locParts.push('<strong>City:</strong> ' + esc(job.city));
+    if (job.state) locParts.push('<strong>State:</strong> ' + esc(job.state));
+    if (locParts.length) {
+      locLines = '<span class="meta-item">' + ICON.pin + ' '
+        + locParts.join(' &middot; ') + '</span>';
+    } else if (job.locationRaw) {
+      locLines = '<span class="meta-item">' + ICON.pin + ' '
+        + esc(job.locationRaw) + '</span>';
+    } else {
+      locLines = '<span class="meta-item">' + ICON.pin + ' India</span>';
+    }
+
+    var salary = '<span class="meta-item">' + ICON.money + ' '
+      + (job.salary ? esc(job.salary) : 'Not Disclosed') + '</span>';
+
+    var posted = '<span class="meta-item">' + ICON.cal + ' '
+      + esc(job.postedDate) + '</span>';
+
+    return '<div class="job-card" style="' + cardStyle + '">'
+      + '<div class="card-header">'
+        + '<div class="company-logo">' + logoHtml + '</div>'
+        + '<div style="min-width:0;">'
+          + '<div class="card-title">' + esc(job.title) + '</div>'
+          + '<div class="card-company">' + esc(job.company) + '</div>'
+        + '</div>'
+      + '</div>'
+      + '<div class="card-meta">' + locLines + salary + posted + '</div>'
+      + '<div class="card-tags">' + tags + '</div>'
+      + (job.description ? '<div class="card-description">' + esc(job.description) + '</div>' : '')
+      + '<div class="card-footer">'
+        + '<span class="meta-item" style="font-size:.75rem">' + ICON.brief + ' '
+          + esc(job.empType) + '</span>'
+        // Apply button ALWAYS opens the ORIGINAL job page (job.url)
+        + '<a class="apply-btn" href="' + esc(job.url) + '" target="_blank" rel="noopener noreferrer">'
+          + ICON.link + ' Apply Now</a>'
+      + '</div>'
+    + '</div>';
+  }).join('');
+
+  resultsCount.textContent = 'Showing ' + jobs.length + ' of ' + ALL_JOBS.length;
+  jobCount.textContent = jobs.length + ' jobs';
+}
+
+function filterJobs() {
+  var search = searchInput.value.toLowerCase().trim();
+  var st = stateFilter.value;
+  var ci = cityFilter.value;
+  var ca = categoryFilter.value;
+  var co = companyFilter.value;
+  var so = sourceFilter.value;
+
+  jobs = ALL_JOBS.filter(function(job) {
+    if (st && job.state !== st) return false;
+    if (ci && job.city !== ci) return false;
+    if (ca && (job.category || 'Other') !== ca) return false;
+    if (co && job.company !== co) return false;
+    if (so && job.source !== so) return false;
+    if (search) {
+      var hay = (job.title + ' ' + job.company + ' ' + job.city + ' '
+        + job.state + ' ' + job.area + ' ' + (job.description||'')).toLowerCase();
+      if (hay.indexOf(search) === -1) return false;
+    }
+    return true;
+  });
+  renderCards();
+}
+
+searchInput.addEventListener('input', filterJobs);
+stateFilter.addEventListener('change', filterJobs);
+cityFilter.addEventListener('change', filterJobs);
+categoryFilter.addEventListener('change', filterJobs);
+companyFilter.addEventListener('change', filterJobs);
+sourceFilter.addEventListener('change', filterJobs);
+
+resetBtn.addEventListener('click', function() {
+  searchInput.value = '';
+  stateFilter.value = '';
+  cityFilter.value = '';
+  categoryFilter.value = '';
+  companyFilter.value = '';
+  sourceFilter.value = '';
+  filterJobs();
+});
+
+document.addEventListener('keydown', function(e) {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+    e.preventDefault();
+    searchInput.focus();
+  }
+});
+
+renderCards();
+})();
+</script>
+</body>
+</html>
