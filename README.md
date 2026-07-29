@@ -10,8 +10,8 @@
 ## 📊 Live Stats
 
 - **Jobs in this update:** 1
-- **Total unique jobs tracked:** 8
-- **Last updated:** 2026-07-24 17:14:30 UTC
+- **Total unique jobs tracked:** 9
+- **Last updated:** 2026-07-29 16:52:14 UTC
 - **Live board:** [jobsboard.samkhan.in](https://samkhankingo01-ctrl.github.io/jobs-repo/) (→ `docs/index.html`)
 
 ---
@@ -192,7 +192,7 @@ Each job produces an Instagram-ready caption block:
 
 | # | Title | Company | State | City | Area | Source |
 |---|-------|---------|-------|------|------|--------|
-| 1 | Softwaretrainer (m/w/d) | INNOSYSTEC GmbH | Tamil Nadu | Salem | — | arbeitnow |
+| 1 | Lead Data Engineer | liberis | Maharashtra | Mumbai | — | arbeitnow |
 
 ---
 
