@@ -9,9 +9,9 @@
 
 ## 📊 Live Stats
 
-- **Jobs in this update:** 1
-- **Total unique jobs tracked:** 9
-- **Last updated:** 2026-07-29 16:52:14 UTC
+- **Jobs in this update:** 2
+- **Total unique jobs tracked:** 11
+- **Last updated:** 2026-07-29 20:41:24 UTC
 - **Live board:** [jobsboard.samkhan.in](https://samkhankingo01-ctrl.github.io/jobs-repo/) (→ `docs/index.html`)
 
 ---
@@ -184,7 +184,7 @@ Each job produces an Instagram-ready caption block:
 
 | Category | Count | % |
 |----------|-------|---|
-| IT | 1 | 100.0% |
+| IT | 2 | 100.0% |
 
 ---
 
@@ -192,7 +192,8 @@ Each job produces an Instagram-ready caption block:
 
 | # | Title | Company | State | City | Area | Source |
 |---|-------|---------|-------|------|------|--------|
-| 1 | Lead Data Engineer | liberis | Maharashtra | Mumbai | — | arbeitnow |
+| 1 | Staff Software Engineer, Agentic Platform | tide | Karnataka | Hyderabad | Berlin, Delhi NCR, Lithuania, Serbia, United Kingdom, Bengaluru | arbeitnow |
+| 2 | Senior Staff Software Engineer, Agentic Platf | tide | Karnataka | Hyderabad | Berlin, Delhi NCR, Lithuania, Serbia, United Kingdom, Bengaluru | arbeitnow |
 
 ---
 
