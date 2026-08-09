@@ -10,8 +10,8 @@
 ## 📊 Live Stats
 
 - **Jobs in this update:** 2
-- **Total unique jobs tracked:** 11
-- **Last updated:** 2026-07-29 20:41:24 UTC
+- **Total unique jobs tracked:** 13
+- **Last updated:** 2026-08-09 14:06:04 UTC
 - **Live board:** [jobsboard.samkhan.in](https://samkhankingo01-ctrl.github.io/jobs-repo/) (→ `docs/index.html`)
 
 ---
@@ -192,8 +192,8 @@ Each job produces an Instagram-ready caption block:
 
 | # | Title | Company | State | City | Area | Source |
 |---|-------|---------|-------|------|------|--------|
-| 1 | Staff Software Engineer, Agentic Platform | tide | Karnataka | Hyderabad | Berlin, Delhi NCR, Lithuania, Serbia, United Kingdom, Bengaluru | arbeitnow |
-| 2 | Senior Staff Software Engineer, Agentic Platf | tide | Karnataka | Hyderabad | Berlin, Delhi NCR, Lithuania, Serbia, United Kingdom, Bengaluru | arbeitnow |
+| 1 | Software Developer - Risk Data Pipelines | Squarepointcapital | Karnataka | Bangalore | Montreal, Warsaw | arbeitnow |
+| 2 | Software Developer - Data Pipelines (Python) | Squarepointcapital | Karnataka | Bangalore | London, Montreal, Madrid | arbeitnow |
 
 ---
 
