@@ -9,9 +9,9 @@
 
 ## 📊 Live Stats
 
-- **Jobs in this update:** 2
-- **Total unique jobs tracked:** 13
-- **Last updated:** 2026-08-09 14:06:04 UTC
+- **Jobs in this update:** 1
+- **Total unique jobs tracked:** 14
+- **Last updated:** 2026-08-13 15:32:50 UTC
 - **Live board:** [jobsboard.samkhan.in](https://samkhankingo01-ctrl.github.io/jobs-repo/) (→ `docs/index.html`)
 
 ---
@@ -184,7 +184,7 @@ Each job produces an Instagram-ready caption block:
 
 | Category | Count | % |
 |----------|-------|---|
-| IT | 2 | 100.0% |
+| Engineering | 1 | 100.0% |
 
 ---
 
@@ -192,8 +192,7 @@ Each job produces an Instagram-ready caption block:
 
 | # | Title | Company | State | City | Area | Source |
 |---|-------|---------|-------|------|------|--------|
-| 1 | Software Developer - Risk Data Pipelines | Squarepointcapital | Karnataka | Bangalore | Montreal, Warsaw | arbeitnow |
-| 2 | Software Developer - Data Pipelines (Python) | Squarepointcapital | Karnataka | Bangalore | London, Montreal, Madrid | arbeitnow |
+| 1 | Personalsachbearbeiter (m/w/d) - in Voll- ode | ACE Advanced Composite En | Tamil Nadu | Salem | — | arbeitnow |
 
 ---
 
