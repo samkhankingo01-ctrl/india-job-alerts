@@ -10,8 +10,8 @@
 ## 📊 Live Stats
 
 - **Jobs in this update:** 1
-- **Total unique jobs tracked:** 15
-- **Last updated:** 2026-08-13 20:03:14 UTC
+- **Total unique jobs tracked:** 16
+- **Last updated:** 2026-09-14 17:12:08 UTC
 - **Live board:** [jobsboard.samkhan.in](https://samkhankingo01-ctrl.github.io/jobs-repo/) (→ `docs/index.html`)
 
 ---
@@ -184,7 +184,7 @@ Each job produces an Instagram-ready caption block:
 
 | Category | Count | % |
 |----------|-------|---|
-| Engineering | 1 | 100.0% |
+| IT | 1 | 100.0% |
 
 ---
 
@@ -192,7 +192,7 @@ Each job produces an Instagram-ready caption block:
 
 | # | Title | Company | State | City | Area | Source |
 |---|-------|---------|-------|------|------|--------|
-| 1 | Personalsachbearbeiter (m/w/d) in Voll- oder  | ACE Advanced Composite En | Tamil Nadu | Salem | — | arbeitnow |
+| 1 | Senior Softwareentwickler (m/w/d) - Salem | INNOSYSTEC GmbH | Tamil Nadu | Salem | — | arbeitnow |
 
 ---
 
