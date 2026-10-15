@@ -10,8 +10,8 @@
 ## 📊 Live Stats
 
 - **Jobs in this update:** 1
-- **Total unique jobs tracked:** 16
-- **Last updated:** 2026-09-14 17:12:08 UTC
+- **Total unique jobs tracked:** 17
+- **Last updated:** 2026-10-15 10:31:13 UTC
 - **Live board:** [jobsboard.samkhan.in](https://samkhankingo01-ctrl.github.io/jobs-repo/) (→ `docs/index.html`)
 
 ---
@@ -192,7 +192,7 @@ Each job produces an Instagram-ready caption block:
 
 | # | Title | Company | State | City | Area | Source |
 |---|-------|---------|-------|------|------|--------|
-| 1 | Senior Softwareentwickler (m/w/d) - Salem | INNOSYSTEC GmbH | Tamil Nadu | Salem | — | arbeitnow |
+| 1 | Junior Software Test (QA) Automation Engineer | IndieKidz GmbH | Maharashtra | Mumbai | — | arbeitnow |
 
 ---
 

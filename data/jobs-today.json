@@ -1,24 +1,24 @@
 [
   {
-    "title": "Senior Softwareentwickler (m/w/d) - Salem",
-    "company": "INNOSYSTEC GmbH",
+    "title": "Junior Software Test (QA) Automation Engineer - AI Startup (Remote)",
+    "company": "IndieKidz GmbH",
     "company_logo": "",
-    "city": "Salem",
-    "state": "Tamil Nadu",
+    "city": "Mumbai",
+    "state": "Maharashtra",
     "area": "",
-    "location_raw": "Salem",
+    "location_raw": "Mumbai",
     "salary": "",
-    "url": "https://www.arbeitnow.com/jobs/companies/innosystec-gmbh/senior-softwareentwickler-salem-194512",
+    "url": "https://www.arbeitnow.com/jobs/companies/indiekidz-gmbh/software-test-qa-automation-engineer-ai-startup-remote-eu-time-zone-berlin-458991",
     "source": "arbeitnow",
     "category": "IT",
-    "posted_date": "2026-09-14",
-    "posted_date_raw": "1789404929",
+    "posted_date": "2026-10-15",
+    "posted_date_raw": "1792059452",
     "last_date": "",
-    "description": "<p><strong>BE YOU!</strong> Denn hier geht es um dich, deinen Job und deine Leidenschaft. Individuelle Entwicklung und maximale Flexibilität für dich und deine Arbeitsweise sind bei INNO keine Floskeln - und das inmitten eines hochspannenden Arbeitsumfeldes. Mit unserer Multisource-Analytics-Software SCOPE hilft unsere 100-köpfige #innocrew unseren Kunden täglich dabei, die Welt ein Stück sicherer zu machen.</p>\n<p>Coden ist deine Leidenschaft aber du willst mehr als nur entwickeln? Du suchst ei",
+    "description": "<p><strong>About Occibo</strong></p><p>Occibo is an AI-powered SaaS platform for children's book creation, built by IndieKidz GmbH in Berlin. We are a small, remote-first team looking for a QA Engineer to help us build and maintain automated testing so we can ship new features quickly and with confidence.<br><strong>Employment type</strong></p><p>Full-time position.</p><p><strong>Salary: up to INR 3.5 lakhs per year</strong></p><h2>Tasks</h2><p><strong>What you will do:</strong></p><ul><li><p>Bu",
     "employment_type": "",
     "is_government": false,
-    "is_remote": false,
-    "fingerprint": "f3e3285887e2ac3f0abd61cce8077c61b9aa78f91cfea578facb4a1239d1fc2b",
-    "job_id": "senior-softwareentwickler-salem-194512"
+    "is_remote": true,
+    "fingerprint": "25aede4544286d082b56aec40dcea3cecacc2d8d3b1a903a0437d616ae2cd5f6",
+    "job_id": "software-test-qa-automation-engineer-ai-startup-remote-eu-time-zone-berlin-458991"
   }
 ]
