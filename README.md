@@ -10,8 +10,8 @@
 ## 📊 Live Stats
 
 - **Jobs in this update:** 1
-- **Total unique jobs tracked:** 17
-- **Last updated:** 2026-10-15 10:31:13 UTC
+- **Total unique jobs tracked:** 18
+- **Last updated:** 2026-11-11 13:08:33 UTC
 - **Live board:** [jobsboard.samkhan.in](https://samkhankingo01-ctrl.github.io/jobs-repo/) (→ `docs/index.html`)
 
 ---
@@ -184,7 +184,7 @@ Each job produces an Instagram-ready caption block:
 
 | Category | Count | % |
 |----------|-------|---|
-| IT | 1 | 100.0% |
+| Engineering | 1 | 100.0% |
 
 ---
 
@@ -192,7 +192,7 @@ Each job produces an Instagram-ready caption block:
 
 | # | Title | Company | State | City | Area | Source |
 |---|-------|---------|-------|------|------|--------|
-| 1 | Junior Software Test (QA) Automation Engineer | IndieKidz GmbH | Maharashtra | Mumbai | — | arbeitnow |
+| 1 | Quality Engineer (m/w/d) | ACE Advanced Composite En | Tamil Nadu | Salem | — | arbeitnow |
 
 ---
 
