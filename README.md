@@ -10,8 +10,8 @@
 ## 📊 Live Stats
 
 - **Jobs in this update:** 1
-- **Total unique jobs tracked:** 18
-- **Last updated:** 2026-11-11 13:08:33 UTC
+- **Total unique jobs tracked:** 19
+- **Last updated:** 2026-11-22 22:56:26 UTC
 - **Live board:** [jobsboard.samkhan.in](https://samkhankingo01-ctrl.github.io/jobs-repo/) (→ `docs/index.html`)
 
 ---
@@ -192,7 +192,7 @@ Each job produces an Instagram-ready caption block:
 
 | # | Title | Company | State | City | Area | Source |
 |---|-------|---------|-------|------|------|--------|
-| 1 | Quality Engineer (m/w/d) | ACE Advanced Composite En | Tamil Nadu | Salem | — | arbeitnow |
+| 1 | Mitarbeiter (m/w/d) für Serienprozesstechnik | ACE Advanced Composite En | Tamil Nadu | Salem | — | arbeitnow |
 
 ---
 
